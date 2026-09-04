@@ -31,7 +31,7 @@ function renderHeader(active) {
   <div class="topbar">
     <div class="wrap topbar__in">
       <a class="topbar__logo" href="index.html">
-        <img src="images/logo/logo-color.png" alt="ДарЛес — питомник декоративных растений">
+        <img src="images/site/6.jpg" alt="ДарЛес — питомник декоративных растений">
         <span>ДарЛес</span>
       </a>
       <nav class="topbar__nav">
@@ -62,7 +62,7 @@ function renderFooter() {
   <footer class="footer" id="contacts">
     <div class="wrap footer__grid">
       <div>
-        <img class="footer__logo" src="images/logo/logo-white.png" alt="ДарЛес">
+        <img class="footer__logo" src="images/site/5.png" alt="ДарЛес">
         <p>Первый питомник декоративных растений в Крыму. 15 га, более 400 000 растений и 350 сортов.</p>
         <div class="socials">
           <a class="social" href="${CONTACTS.telegram}" target="_blank" rel="noopener" aria-label="Telegram">${ICONS.tg}</a>
