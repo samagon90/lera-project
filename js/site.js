@@ -48,12 +48,25 @@ function renderHeader(active) {
           <div class="phones__list">${phoneItems}</div>
         </div>
         <a class="mail" href="mailto:${CONTACTS.email}">${CONTACTS.email}</a>
+        <button class="burger" id="burger" type="button" aria-label="Меню">
+          <svg viewBox="0 0 24 24"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg>
+        </button>
       </div>
     </div>
-  </div>`;
+  </div>
+  <nav class="drawer" id="drawer">
+    <a href="index.html#about">О питомнике</a>
+    <a href="catalog.html">Каталог</a>
+    <a href="index.html#categories">Категории</a>
+    <a href="mailto:${CONTACTS.email}">${CONTACTS.email}</a>
+    <a href="index.html#contacts">Контакты</a>
+  </nav>`;
   const ph = document.getElementById("phones");
   ph.querySelector(".phones__btn").addEventListener("click", e => { e.stopPropagation(); ph.classList.toggle("open"); });
   document.addEventListener("click", () => ph.classList.remove("open"));
+  const burger = document.getElementById("burger"), drawer = document.getElementById("drawer");
+  burger.addEventListener("click", e => { e.stopPropagation(); drawer.classList.toggle("open"); });
+  drawer.addEventListener("click", () => drawer.classList.remove("open"));
 }
 
 function renderFooter() {
@@ -130,4 +143,29 @@ function initHeroCarousel(el, interval = 5000) {
   el.querySelector(".carousel__arrow--prev").addEventListener("click", () => go(i - 1));
   el.querySelector(".carousel__arrow--next").addEventListener("click", () => go(i + 1));
   restart();
+}
+
+
+/* Горизонтальная карусель карточек: стрелки + автопрокрутка */
+function initRowCarousel(wrapEl, auto = 4000) {
+  const track = wrapEl.querySelector(".row-carousel__track");
+  const mk = (cls, txt, dir) => {
+    const b = document.createElement("button");
+    b.className = "carousel__arrow " + cls; b.textContent = txt; b.type = "button";
+    b.addEventListener("click", () => { stop(); scrollBy(dir); });
+    wrapEl.appendChild(b); return b;
+  };
+  const step = () => track.firstElementChild ? track.firstElementChild.offsetWidth + 24 : 300;
+  function scrollBy(dir) { track.scrollBy({ left: dir * step(), behavior: "smooth" }); }
+  mk("carousel__arrow--prev", "‹", -1);
+  mk("carousel__arrow--next", "›", 1);
+  let timer = setInterval(tick, auto);
+  function tick() {
+    const max = track.scrollWidth - track.clientWidth - 4;
+    if (track.scrollLeft >= max) track.scrollTo({ left: 0, behavior: "smooth" });
+    else scrollBy(1);
+  }
+  function stop() { clearInterval(timer); timer = setInterval(tick, auto * 2); }
+  wrapEl.addEventListener("mouseenter", () => clearInterval(timer));
+  wrapEl.addEventListener("mouseleave", () => { timer = setInterval(tick, auto); });
 }

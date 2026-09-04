@@ -47,7 +47,13 @@ h3{font-size:20px}
 .phones__list a:hover{background:var(--gray-light);color:var(--green)}
 .mail{color:var(--gray)}
 .mail:hover{color:var(--green)}
-.burger{display:none;background:none;border:0;font-size:24px;color:var(--green);cursor:pointer}
+.burger{display:none;background:none;border:0;padding:6px;cursor:pointer;color:var(--green)}
+.burger svg{width:26px;height:26px;fill:currentColor}
+.drawer{position:fixed;inset:64px 0 auto 0;background:#fff;border-bottom:1px solid var(--line);
+  box-shadow:0 18px 30px rgba(0,0,0,.08);padding:18px 24px 26px;display:none;z-index:55}
+.drawer.open{display:block}
+.drawer a{display:block;padding:12px 0;border-bottom:1px solid var(--line);color:var(--black)}
+.drawer a:last-child{border-bottom:0}
 
 /* ---------- HERO ---------- */
 .hero{position:relative;height:min(84vh,760px);display:flex;align-items:center;justify-content:center;overflow:hidden}
@@ -93,7 +99,14 @@ h3{font-size:20px}
 .carousel__arrow--prev{left:16px}
 .carousel__arrow--next{right:16px}
 
-.row-carousel{position:relative;margin-top:36px}
+.row-carousel{position:relative;margin-top:36px;padding:0 4px}
+.row-carousel .carousel__arrow{z-index:5;box-shadow:0 6px 18px rgba(0,0,0,.12);border:1px solid var(--line)}
+.row-carousel .carousel__arrow--prev{left:-18px}
+.row-carousel .carousel__arrow--next{right:-18px}
+@media(max-width:1280px){
+  .row-carousel .carousel__arrow--prev{left:6px}
+  .row-carousel .carousel__arrow--next{right:6px}
+}
 .row-carousel__track{display:flex;gap:24px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding-bottom:8px;scrollbar-width:none}
 .row-carousel__track::-webkit-scrollbar{display:none}
 .row-carousel__track > *{flex:0 0 clamp(240px,26%,300px);scroll-snap-align:start}
@@ -107,7 +120,7 @@ h3{font-size:20px}
 .btn--ghost:hover{background:var(--green);color:#fff}
 
 /* ---------- PRODUCT CARD ---------- */
-.card{display:block;background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;transition:.25s}
+.card{display:block;text-align:left;background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;transition:.25s}
 .card:hover{box-shadow:0 16px 40px rgba(17,17,17,.09);transform:translateY(-4px);border-color:#d7ded8}
 .card__img{position:relative;aspect-ratio:4/3;overflow:hidden;background:var(--gray-light)}
 .card__img img{width:100%;height:100%;object-fit:cover;transition:transform .5s}
@@ -179,6 +192,7 @@ h3{font-size:20px}
 
 /* ---------- RESPONSIVE ---------- */
 @media(max-width:900px){
+  .burger{display:block}
   .about__grid,.product,.footer__grid{grid-template-columns:1fr}
   .facts,.contact-card{grid-template-columns:1fr}
   .stats{grid-template-columns:1fr;gap:12px}
