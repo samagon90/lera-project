@@ -41,14 +41,14 @@ const ADMIN_AUTH = (() => {
   function isLoggedIn() {
     try {
       const s = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
-      return s && s.hash === HASH && s.exp > Date.now();
+      return s && s.v === 2 && s.hash === HASH && s.exp > Date.now();
     } catch { return false; }
   }
 
   function saveSession() {
     // Сессия живёт 24 часа с момента входа (или до закрытия вкладки)
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({
-      hash: HASH, exp: Date.now() + 24 * 60 * 60 * 1000
+      v: 2, hash: HASH, exp: Date.now() + 24 * 60 * 60 * 1000
     }));
   }
 
