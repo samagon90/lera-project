@@ -261,7 +261,7 @@ const dz = () => $("dropzone");
 
 function initDropzone() {
   dz().addEventListener("click", e => {
-    if (e.target.closest(".dz-thumb__x")) return;
+    if (e.target.closest(".dz-thumb__x, .dz-thumb__edit")) return;
     $("fileInput").click();
   });
   $("fileInput").addEventListener("change", e => addFiles([...e.target.files]));
@@ -290,8 +290,8 @@ async function addFiles(files) {
       } else {
         dataURL = await blobToDataURL(f);
       }
-      photos.push({ dataURL });
-      logLine("ok", `Фото готово (${photos.length === 1 ? "главное" : "доп. " + (photos.length - 1)})`);
+      photos.push({ originalDataURL: dataURL, dataURL, state: null });
+      logLine("ok", `Фото готово (${photos.length === 1 ? "главное" : "доп. " + (photos.length - 1)}). Кнопка ✏️ — сменить фон и выровнять.`);
     } catch (e) {
       logLine("err", "Ошибка фото: " + e.message);
     }
@@ -299,10 +299,27 @@ async function addFiles(files) {
   }
 }
 
+/* Редактор фото: фон + выравнивание */
+function openEditor(i) {
+  if (typeof PhotoEditor === "undefined") { alert("Редактор фото не загрузился — обновите страницу."); return; }
+  const p = photos[i];
+  PhotoEditor.open({
+    source: p.originalDataURL || p.dataURL,
+    state: p.state,
+    onSave: ({ dataURL, state }) => {
+      p.dataURL = dataURL;
+      p.state = state;
+      renderThumbs(); renderPreview();
+      logLine("ok", "Фото отредактировано (фон/выравнивание)");
+    }
+  });
+}
+
 function renderThumbs() {
   $("dzThumbs").innerHTML = photos.map((p, i) => `
     <div class="dz-thumb ${i === 0 ? "dz-thumb--main" : ""}">
       <img src="${p.dataURL}" alt="">
+      <button class="dz-thumb__edit" type="button" data-i="${i}" title="Редактировать: фон, выравнивание">✏️</button>
       <button class="dz-thumb__x" type="button" data-i="${i}" title="Убрать">✕</button>
     </div>`).join("");
   $("dzThumbs").querySelectorAll(".dz-thumb__x").forEach(b =>
@@ -310,6 +327,8 @@ function renderThumbs() {
       photos.splice(+b.dataset.i, 1);
       renderThumbs(); renderPreview();
     }));
+  $("dzThumbs").querySelectorAll(".dz-thumb__edit").forEach(b =>
+    b.addEventListener("click", () => openEditor(+b.dataset.i)));
 }
 
 /* ------------------------------------------------------------------ */
@@ -462,8 +481,8 @@ function loadDraftToForm(i) {
   $("fPrice").value = d.price ?? ""; $("fShort").value = d.short || "";
   $("fDesc").value = d.description || "";
   photos = [
-    ...(d.imageDataURL ? [{ dataURL: d.imageDataURL }] : []),
-    ...(d.galleryDataURLs || []).map(u => ({ dataURL: u }))
+    ...(d.imageDataURL ? [{ originalDataURL: d.imageDataURL, dataURL: d.imageDataURL, state: null }] : []),
+    ...(d.galleryDataURLs || []).map(u => ({ originalDataURL: u, dataURL: u, state: null }))
   ];
   renderThumbs(); renderPreview();
   window.scrollTo({ top: 0, behavior: "smooth" });
