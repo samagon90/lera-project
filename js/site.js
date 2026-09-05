@@ -100,7 +100,6 @@ function renderFooter() {
     <div class="wrap footer__bottom">
       <span>© ${new Date().getFullYear()} Питомник «ДарЛес»</span>
       <span>Сайт-витрина. Заказ — по телефону или в соцсетях.</span>
-      <a href="admin.html" style="opacity:.55;font-size:13px">Админ-панель</a>
     </div>
   </footer>`;
 }
