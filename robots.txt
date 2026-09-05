@@ -3,3 +3,7 @@ Allow: /
 Disallow: /admin.html
 Disallow: /js/admin-auth.js
 Disallow: /js/_panel.inc
+Disallow: /INSTRUCTION.md
+Disallow: /ШПАРГАЛКА.md
+Disallow: /README.md
+Disallow: /.git/

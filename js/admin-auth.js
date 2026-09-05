@@ -9,7 +9,7 @@
 const ADMIN_AUTH = (() => {
   // ------ НАСТРОЙКИ ------
   const SALT = "darles_salt_w79r4l905";
-  // SHA-256(salt + ":" + password), текущий пароль: darles2025
+  // HASH = SHA-256(salt + ":" + password). Сменить пароль — см. инструкцию в конце файла.
   const HASH = "0fce33323be2f87efa131b45b7a115c9eb561d151b9a7dc7ad750bae62bd2152";
   const SESSION_KEY = "darles_admin_session";
   const ATTEMPTS_KEY = "darles_admin_attempts";
