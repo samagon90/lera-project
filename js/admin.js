@@ -25,7 +25,7 @@ let drafts = loadDrafts();
 /* ------------------------------------------------------------------ */
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const money = n => new Intl.NumberFormat("ru-RU").format(n) + " ₽";
+/* money(), NO_PHOTO, prodImage(), stockInfo() приходят из js/site.js — он подключается раньше */
 
 function utf8b64(str) {
   const bytes = new TextEncoder().encode(str);
@@ -145,11 +145,13 @@ const FILE_HEADER = `/* ========================================================
    Каждое растение — блок { ... } в списке PRODUCTS, между блоками запятая.
      id  — уникальный номер (у нового: +1 к последнему)
      category — одно из: "hvoynye" | "listvennye" | "mnogoletnie"
-     price — цена числом, без пробелов и ₽
-     image — путь к фото, например "images/catalog/23.jpg"
+     size  — размер (контейнер) из прайса, например "C3", "C7,5", "C10"
+     price — розничная цена числом, без пробелов и ₽
+     stock — количество в наличии, штук (null — «уточняйте»)
+     image — путь к фото, например "images/catalog/23.jpg" ("" — фото пока нет)
      gallery — доп. фото: ["images/catalog/23-1.jpg"] или []
      short — короткая подпись в карточке
-     description — абзацы разделяются пустой строкой
+     description — абзацы разделяются пустой строкой ("" — описания пока нет)
    ===================================================================== */`;
 
 function productToJS(p) {
@@ -160,8 +162,10 @@ function productToJS(p) {
     id: ${Number(p.id)},
     name: ${q(p.name)},
     category: ${q(p.category)},
+    size: ${q(p.size || "")},
     price: ${Number(p.price)},
-    image: ${q(p.image)},
+    stock: ${p.stock == null || p.stock === "" ? "null" : Number(p.stock)},
+    image: ${q(p.image || "")},
     gallery: ${JSON.stringify(p.gallery || [])},
     short: ${q(p.short || "")},
     description: \`${desc}\`
@@ -337,10 +341,13 @@ function renderThumbs() {
 function collectForm() {
   const name = $("fName").value.trim();
   const price = parseInt($("fPrice").value, 10);
+  const stock = parseInt($("fStock").value, 10);
   return {
     name,
     category: $("fCategory").value,
+    size: $("fSize").value.trim(),
     price: isNaN(price) ? null : price,
+    stock: isNaN(stock) ? null : Math.max(0, stock),
     short: $("fShort").value.trim(),
     description: $("fDesc").value.trim(),
   };
@@ -348,23 +355,25 @@ function collectForm() {
 
 function renderPreview() {
   const f = collectForm();
-  const img = photos[0]?.dataURL || "images/site/7.jpg";
+  const img = photos[0]?.dataURL || NO_PHOTO;
   const cat = { hvoynye: "Хвойные", listvennye: "Лиственные", mnogoletnie: "Многолетние" }[f.category];
+  const st = stockInfo(f);
   $("preview").innerHTML = `
     <a class="card" href="javascript:void(0)">
-      <div class="card__img"><img src="${img}" alt=""><span class="card__tag">${cat}</span></div>
+      <div class="card__img"><img src="${img}" alt=""><span class="card__tag">${cat}</span>
+        ${f.size ? `<span class="card__size">${esc(f.size)}</span>` : ""}</div>
       <div class="card__body">
         <div class="card__name">${esc(f.name) || "Название растения"}</div>
-        <div class="card__short">${esc(f.short) || "короткая подпись"}</div>
+        <div class="card__short">${esc(f.short) || (f.size ? "Контейнер " + esc(f.size) : "короткая подпись")}</div>
         <div class="card__bottom">
           <span class="card__price">${f.price != null ? money(f.price) : "— ₽"}</span>
-          <span class="card__more">Подробнее →</span>
+          <span class="card__stock ${st.cls}">${st.text}</span>
         </div>
       </div>
     </a>
     <p class="muted small" style="margin-top:14px">${photos.length > 1 ? `Будет загружено фото: ${photos.length} (первое — главное).` : "Главное фото карточки — слева вверху."}</p>`;
 }
-["fName", "fCategory", "fPrice", "fShort", "fDesc"].forEach(id =>
+["fName", "fCategory", "fSize", "fPrice", "fStock", "fShort", "fDesc"].forEach(id =>
   document.addEventListener("input", e => { if (e.target.id === id) renderPreview(); }));
 
 function validate(f, isNew) {
@@ -378,7 +387,7 @@ function validate(f, isNew) {
 function resetForm() {
   editingId = null;
   photos = [];
-  ["fName", "fPrice", "fShort", "fDesc"].forEach(id => $(id).value = "");
+  ["fName", "fSize", "fPrice", "fStock", "fShort", "fDesc"].forEach(id => $(id).value = "");
   $("fCategory").value = "hvoynye";
   $("btnReset").style.display = "none";
   $("formTitle").textContent = "Добавить растение";
@@ -387,43 +396,102 @@ function resetForm() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Таблица растений + черновики                                        */
+/* Таблица наличия (правка количества) + черновики                     */
 /* ------------------------------------------------------------------ */
-function renderTable() {
-  const rows = [
-    ...drafts.map((d, i) => ({ draft: d, i })),
-    ...PRODUCTS.map(p => ({ p }))
-  ];
-  $("prodCount").textContent = `— ${PRODUCTS.length} на сайте${drafts.length ? `, черновиков: ${drafts.length}` : ""}`;
+let stockEdits = {};        // id -> новое количество (ещё не сохранено)
+let tblLimit = 60;          // сколько строк показываем сразу
 
-  $("prodTable").innerHTML = rows.map(r => {
-    if (r.draft) {
-      const d = r.draft;
-      return `<div class="prow">
-        <img src="${d.imageDataURL || "images/site/7.jpg"}" alt="">
-        <div>
-          <div class="prow__name">${esc(d.name || "Без названия")}<span class="tag-draft">черновик</span></div>
-          <div class="prow__meta">${catTitle(d.category)}${d.price != null ? " · " + money(d.price) : ""}</div>
-        </div>
-        <div class="prow__actions">
-          <button class="prow__btn" data-act="editdraft" data-i="${r.i}">В форму</button>
-          <button class="prow__btn prow__btn--danger" data-act="deldraft" data-i="${r.i}">Удалить</button>
-        </div>
-      </div>`;
-    }
-    const p = r.p;
-    return `<div class="prow">
-      <img src="${p.image}" alt="" loading="lazy">
+function tblFiltered() {
+  const q = ($("tblSearch")?.value || "").trim().toLowerCase();
+  const cat = $("tblCat")?.value || "";
+  const noPhoto = $("tblNoPhoto")?.checked;
+  const noDesc = $("tblNoDesc")?.checked;
+  return PRODUCTS.filter(p => {
+    if (cat && p.category !== cat) return false;
+    if (noPhoto && p.image) return false;
+    if (noDesc && String(p.description || "").trim()) return false;
+    if (q && !(p.name + " " + (p.size || "")).toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function stockValue(p) {
+  if (Object.prototype.hasOwnProperty.call(stockEdits, p.id)) return stockEdits[p.id];
+  return p.stock == null ? "" : p.stock;
+}
+
+function updateDirty() {
+  const n = Object.keys(stockEdits).length;
+  $("stockDirty").textContent = n ? `не сохранено: ${n}` : "";
+  $("btnSaveStock").disabled = !n;
+}
+
+function renderTable() {
+  const list = tblFiltered();
+  const shown = list.slice(0, tblLimit);
+  const inStock = PRODUCTS.filter(p => Number(p.stock) > 0).length;
+  const noPhotoCount = PRODUCTS.filter(p => !p.image).length;
+
+  $("prodCount").textContent = `— ${PRODUCTS.length} позиций, из них в наличии ${inStock}` +
+    (noPhotoCount ? `, без фото ${noPhotoCount}` : "") +
+    (drafts.length ? `, черновиков: ${drafts.length}` : "");
+
+  const draftRows = drafts.map((d, i) => `<div class="prow">
+      <img src="${d.imageDataURL || NO_PHOTO}" alt="">
       <div>
-        <div class="prow__name">${esc(p.name)}</div>
-        <div class="prow__meta">${catTitle(p.category)} · ${money(p.price)} · id ${p.id}${(p.gallery || []).length ? ` · фото: ${p.gallery.length + 1}` : ""}</div>
+        <div class="prow__name">${esc(d.name || "Без названия")}<span class="tag-draft">черновик</span></div>
+        <div class="prow__meta">${catTitle(d.category)}${d.size ? " · " + esc(d.size) : ""}${d.price != null ? " · " + money(d.price) : ""}</div>
       </div>
+      <div class="prow__qty muted small">—</div>
       <div class="prow__actions">
-        <button class="prow__btn" data-act="edit" data-id="${p.id}">Изменить</button>
+        <button class="prow__btn" data-act="editdraft" data-i="${i}">В форму</button>
+        <button class="prow__btn prow__btn--danger" data-act="deldraft" data-i="${i}">Удалить</button>
+      </div>
+    </div>`).join("");
+
+  const rows = shown.map(p => {
+    const changed = Object.prototype.hasOwnProperty.call(stockEdits, p.id);
+    return `<div class="prow${changed ? " prow--changed" : ""}" data-row="${p.id}">
+      <img src="${prodImage(p)}" alt="" loading="lazy">
+      <div>
+        <div class="prow__name">${esc(p.name)}${p.image ? "" : `<span class="tag-todo">нет фото</span>`}${String(p.description || "").trim() ? "" : `<span class="tag-todo">нет описания</span>`}</div>
+        <div class="prow__meta">${catTitle(p.category)}${p.size ? " · контейнер " + esc(p.size) : ""} · ${money(p.price)} · id ${p.id}</div>
+      </div>
+      <label class="prow__qty" title="Количество в наличии, шт">
+        <input type="number" min="0" step="1" inputmode="numeric" placeholder="—"
+               value="${stockValue(p)}" data-qty="${p.id}">
+        <span>шт</span>
+      </label>
+      <div class="prow__actions">
+        <button class="prow__btn" data-act="edit" data-id="${p.id}">Фото и описание</button>
         <button class="prow__btn prow__btn--danger" data-act="del" data-id="${p.id}">Удалить</button>
       </div>
     </div>`;
   }).join("");
+
+  $("prodTable").innerHTML = draftRows + rows +
+    (list.length ? "" : `<p class="muted small">Ничего не найдено по этому фильтру.</p>`);
+
+  const more = $("btnMore");
+  if (list.length > shown.length) {
+    more.style.display = "";
+    more.textContent = `Показать ещё (осталось ${list.length - shown.length})`;
+  } else {
+    more.style.display = "none";
+  }
+
+  $("prodTable").querySelectorAll("input[data-qty]").forEach(inp =>
+    inp.addEventListener("input", () => {
+      const id = +inp.dataset.qty;
+      const p = PRODUCTS.find(x => x.id === id);
+      const raw = inp.value.trim();
+      const val = raw === "" ? null : Math.max(0, parseInt(raw, 10) || 0);
+      const orig = p.stock == null ? null : Number(p.stock);
+      if (val === orig) delete stockEdits[id];
+      else stockEdits[id] = val;
+      inp.closest(".prow").classList.toggle("prow--changed", Object.prototype.hasOwnProperty.call(stockEdits, id));
+      updateDirty();
+    }));
 
   $("prodTable").querySelectorAll(".prow__btn").forEach(b => b.addEventListener("click", () => {
     const act = b.dataset.act;
@@ -436,7 +504,58 @@ function renderTable() {
       }
     }
   }));
+
+  updateDirty();
 }
+
+/* --- сохранение изменённого количества --- */
+function applyStockEdits(products) {
+  let n = 0;
+  for (const [id, val] of Object.entries(stockEdits)) {
+    const p = products.find(x => x.id === Number(id));
+    if (p) { p.stock = val; n++; }
+  }
+  return n;
+}
+
+async function saveStock() {
+  const ids = Object.keys(stockEdits);
+  if (!ids.length) return;
+
+  if (!ghPush) {
+    alert("GitHub не подключён (нет токена с правом записи).\n\nСейчас скачается готовый файл products.js — загрузите его в репозиторий в папку js.");
+    const products = PRODUCTS.map(p => ({ ...p }));
+    applyStockEdits(products);
+    const blob = new Blob([productsToJS(products)], { type: "text/javascript;charset=utf-8" });
+    downloadDataURL(await blobToDataURL(blob), "products.js");
+    logLine("ok", "Скачан products.js с новым количеством — загрузите его в папку js репозитория.");
+    return;
+  }
+
+  $("publog").innerHTML = "";
+  $("btnSaveStock").disabled = true;
+  try {
+    logLine("", "Читаю js/products.js с GitHub…");
+    const { text, sha } = await ghGetFile("js/products.js");
+    const products = parseProductsJS(text);
+    const n = applyStockEdits(products);
+    logLine("", `Обновляю количество (${n} поз.)…`);
+    await ghPutFile("js/products.js", utf8b64(productsToJS(products)),
+      `[admin] Обновлено наличие: ${n} поз.`, sha);
+    logLine("ok", "Готово! Наличие обновится на сайте через 1–2 минуты.");
+
+    // локальная копия
+    PRODUCTS.length = 0;
+    products.forEach(p => PRODUCTS.push(p));
+    stockEdits = {};
+    renderTable();
+  } catch (e) {
+    logLine("err", "Ошибка сохранения наличия: " + e.message);
+    logLine("", "Числа в таблице не потеряны — попробуйте нажать «Сохранить количество» ещё раз.");
+    updateDirty();
+  }
+}
+
 const catTitle = key => ({ hvoynye: "Хвойные", listvennye: "Лиственные", mnogoletnie: "Многолетние" }[key] || key);
 
 function startEdit(id) {
@@ -445,7 +564,9 @@ function startEdit(id) {
   editingId = id;
   $("fName").value = p.name;
   $("fCategory").value = p.category;
+  $("fSize").value = p.size || "";
   $("fPrice").value = p.price;
+  $("fStock").value = p.stock == null ? "" : p.stock;
   $("fShort").value = p.short || "";
   $("fDesc").value = p.description || "";
   photos = [];
@@ -462,14 +583,16 @@ function startEdit(id) {
 
 function cardMarkup(p) {
   const cat = catTitle(p.category);
+  const st = stockInfo(p);
   return `<a class="card" href="javascript:void(0)">
-    <div class="card__img"><img src="${p.image}" alt=""><span class="card__tag">${cat}</span></div>
+    <div class="card__img"><img src="${prodImage(p)}" alt=""><span class="card__tag">${cat}</span>
+      ${p.size ? `<span class="card__size">${esc(p.size)}</span>` : ""}</div>
     <div class="card__body">
       <div class="card__name">${esc(p.name)}</div>
-      <div class="card__short">${esc(p.short || "")}</div>
+      <div class="card__short">${esc(p.short || (p.size ? "Контейнер " + p.size : ""))}</div>
       <div class="card__bottom">
         <span class="card__price">${money(p.price)}</span>
-        <span class="card__more">Подробнее →</span>
+        <span class="card__stock ${st.cls}">${st.text}</span>
       </div>
     </div>
   </a>`;
@@ -541,9 +664,9 @@ async function publish() {
     const oldEntry = editingId != null ? products.find(p => p.id === editingId) : null;
     const entry = {
       id,
-      name: f.name, category: f.category, price: f.price,
+      name: f.name, category: f.category, size: f.size, price: f.price, stock: f.stock,
       image: (editingId != null && !photos.length)
-        ? oldEntry?.image || mainPath
+        ? (oldEntry ? oldEntry.image || "" : mainPath)   // фото не меняли — оставляем как было ("" = фото ещё нет)
         : mainPath,
       gallery: gallery.length ? gallery : (oldEntry?.gallery || []),
       short: f.short, description: f.description
@@ -637,14 +760,14 @@ async function downloadFiles() {
 
   if (oldEntry) {
     Object.assign(oldEntry, {
-      name: f.name, category: f.category, price: f.price,
+      name: f.name, category: f.category, size: f.size, price: f.price, stock: f.stock,
       image: photos[0] ? `images/catalog/${id}.jpg` : oldEntry.image,
       gallery: gallery.length ? gallery : (oldEntry.gallery || []),
       short: f.short, description: f.description
     });
   } else {
     products.push({
-      id, name: f.name, category: f.category, price: f.price,
+      id, name: f.name, category: f.category, size: f.size, price: f.price, stock: f.stock,
       image: `images/catalog/${id}.jpg`, gallery,
       short: f.short, description: f.description
     });
@@ -705,6 +828,16 @@ $("btnForget").addEventListener("click", async () => {
   await checkConnection(false);
 });
 $("btnPublish").addEventListener("click", publish);
+$("btnSaveStock").addEventListener("click", saveStock);
+$("btnMore").addEventListener("click", () => { tblLimit += 60; renderTable(); });
+["tblSearch", "tblCat", "tblNoPhoto", "tblNoDesc"].forEach(id =>
+  $(id).addEventListener("input", () => { tblLimit = 60; renderTable(); }));
+
+/* подсказки размеров контейнеров из уже добавленных растений */
+$("sizeList").innerHTML = [...new Set(PRODUCTS.map(p => p.size).filter(Boolean))]
+  .sort((a, b) => parseFloat(a.replace(/[^\d,]/g, "").replace(",", ".")) -
+                  parseFloat(b.replace(/[^\d,]/g, "").replace(",", ".")))
+  .map(v => `<option value="${v}"></option>`).join("");
 $("btnSaveDraft").addEventListener("click", saveDraft);
 $("btnDownload").addEventListener("click", downloadFiles);
 $("btnReset").addEventListener("click", resetForm);

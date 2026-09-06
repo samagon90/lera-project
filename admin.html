@@ -85,8 +85,18 @@
             <option value="mnogoletnie">Многолетние</option>
           </select>
         </label>
-        <label>Цена, ₽ * <span class="muted">(только цифры)</span>
+        <label>Розничная цена, ₽ * <span class="muted">(только цифры)</span>
           <input id="fPrice" type="number" min="0" step="50" placeholder="1300">
+        </label>
+      </div>
+
+      <div class="field-row">
+        <label>Размер (контейнер)
+          <input id="fSize" type="text" list="sizeList" placeholder="C3">
+          <datalist id="sizeList"></datalist>
+        </label>
+        <label>Количество в наличии, шт <span class="muted">(пусто = «уточняйте»)</span>
+          <input id="fStock" type="number" min="0" step="1" placeholder="100">
         </label>
       </div>
 
@@ -117,11 +127,32 @@
     </aside>
   </div>
 
-  <!-- ================= КАТАЛОГ ================= -->
+  <!-- ================= ТАБЛИЦА НАЛИЧИЯ ================= -->
   <section class="panel" style="margin-top:34px">
-    <h3>Растения на сайте <span class="muted small" id="prodCount"></span></h3>
+    <h3>Таблица наличия <span class="muted small" id="prodCount"></span></h3>
+    <p class="muted small">Меняйте количество прямо в списке — потом нажмите «Сохранить количество».
+      Кнопка «Изменить» открывает растение в форме сверху: там добавляются фото, описание, цена и размер.</p>
     <p class="muted small" id="tblNote"></p>
+
+    <div class="stock-bar">
+      <input id="tblSearch" type="search" placeholder="Поиск по названию, например: туя">
+      <select id="tblCat">
+        <option value="">Все категории</option>
+        <option value="hvoynye">Хвойные</option>
+        <option value="listvennye">Лиственные</option>
+        <option value="mnogoletnie">Многолетние</option>
+      </select>
+      <label class="check--inline"><input type="checkbox" id="tblNoPhoto"> Только без фото</label>
+      <label class="check--inline"><input type="checkbox" id="tblNoDesc"> Только без описания</label>
+      <span class="stock-bar__spacer"></span>
+      <span class="muted small" id="stockDirty"></span>
+      <button class="btn btn--sm" id="btnSaveStock" type="button" disabled>Сохранить количество</button>
+    </div>
+
     <div class="admin__table" id="prodTable"></div>
+    <div class="admin__more">
+      <button class="btn btn--ghost btn--sm" id="btnMore" type="button" style="display:none">Показать ещё</button>
+    </div>
   </section>
 </main>
 

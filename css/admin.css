@@ -121,3 +121,26 @@
 .pe-row output{font-size:12.5px;min-width:46px;text-align:right;color:var(--black);font-weight:600}
 .pe-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
 .pe-dialog__foot{display:flex;justify-content:flex-end;gap:12px;padding:16px 24px;border-top:1px solid var(--line)}
+
+/* ---------- ТАБЛИЦА НАЛИЧИЯ ---------- */
+.stock-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0 6px;
+  padding:14px 16px;background:var(--gray-light);border:1px solid var(--line);border-radius:14px}
+.stock-bar input[type=search],.stock-bar select{font:inherit;padding:10px 14px;border:1px solid var(--line);
+  border-radius:999px;background:#fff;color:var(--black)}
+.stock-bar input[type=search]{min-width:240px}
+.stock-bar__spacer{flex:1}
+.stock-bar .btn--sm:disabled{opacity:.45;cursor:default}
+.prow{grid-template-columns:64px 1fr auto auto!important}
+.prow--changed{border-color:var(--green);background:#f4faf5}
+.prow__qty{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--gray);font-weight:600}
+.prow__qty input{width:96px;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:10px;
+  text-align:right;background:#fff;color:var(--black)}
+.prow__qty input:focus{outline:0;border-color:var(--green)}
+.prow--changed .prow__qty input{border-color:var(--green);font-weight:700}
+.tag-todo{display:inline-block;background:#f1f2f1;color:#6b7370;font-size:11px;font-weight:700;
+  padding:2px 9px;border-radius:999px;margin-left:8px;vertical-align:middle;letter-spacing:.03em}
+.admin__more{display:flex;justify-content:center;margin-top:16px}
+@media(max-width:820px){
+  .prow{grid-template-columns:48px 1fr!important}
+  .prow__qty,.prow__actions{grid-column:1/-1}
+}

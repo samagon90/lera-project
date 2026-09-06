@@ -17,7 +17,7 @@
   <div class="wrap center">
     <div class="crumbs"><a href="index.html">Главная</a> / Каталог</div>
     <h2>Каталог растений</h2>
-    <p class="lead">Выберите категорию. Цены указаны за одно растение. Для заказа — позвоните нам или напишите в соцсетях.</p>
+    <p class="lead">Выберите категорию. Указаны розничные цены за одно растение, размер контейнера и наличие на площадке.\n      Весь ассортимент одним списком — на странице <a href="nalichie.html">«Наличие и цены»</a>.</p>
     <div class="tabs" id="tabs"></div>
   </div>
 </section>
@@ -25,12 +25,17 @@
 <section class="wrap">
   <div class="toolbar">
     <input id="search" type="search" placeholder="Поиск по названию, например: туя">
+    <select id="size">
+      <option value="">Любой размер</option>
+    </select>
     <select id="sort">
       <option value="default">Сортировка: по умолчанию</option>
       <option value="price-asc">Сначала дешевле</option>
       <option value="price-desc">Сначала дороже</option>
       <option value="name">По названию (А–Я)</option>
+      <option value="stock">Сначала то, чего много</option>
     </select>
+    <label class="check--inline"><input type="checkbox" id="onlyStock"> Только в наличии</label>
     <span class="count" id="count"></span>
   </div>
   <div class="grid" id="grid"></div>
@@ -70,16 +75,31 @@ tabsEl.addEventListener("click", e => {
 });
 document.getElementById("search").addEventListener("input", render);
 document.getElementById("sort").addEventListener("change", render);
+document.getElementById("size").addEventListener("change", render);
+document.getElementById("onlyStock").addEventListener("change", render);
+
+/* список размеров контейнеров из каталога */
+const sizeSel = document.getElementById("size");
+sizeSel.insertAdjacentHTML("beforeend",
+  [...new Set(PRODUCTS.map(p => p.size).filter(Boolean))]
+    .sort((a, b) => parseFloat(a.replace(/[^\d,]/g, "").replace(",", ".")) -
+                    parseFloat(b.replace(/[^\d,]/g, "").replace(",", ".")))
+    .map(s => `<option value="${s}">${s}</option>`).join(""));
 
 function render() {
   [...tabsEl.children].forEach(t => t.classList.toggle("active", t.dataset.cat === current));
   const q = document.getElementById("search").value.trim().toLowerCase();
+  const sizeVal = document.getElementById("size").value;
+  const only = document.getElementById("onlyStock").checked;
   let list = PRODUCTS.filter(p => p.category === current);
-  if (q) list = list.filter(p => (p.name + " " + (p.short || "")).toLowerCase().includes(q));
+  if (sizeVal) list = list.filter(p => p.size === sizeVal);
+  if (only) list = list.filter(p => Number(p.stock) > 0);
+  if (q) list = list.filter(p => (p.name + " " + (p.short || "") + " " + (p.size || "")).toLowerCase().includes(q));
   const s = document.getElementById("sort").value;
   if (s === "price-asc") list.sort((a, b) => a.price - b.price);
   if (s === "price-desc") list.sort((a, b) => b.price - a.price);
   if (s === "name") list.sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  if (s === "stock") list.sort((a, b) => (Number(b.stock) || 0) - (Number(a.stock) || 0));
   document.getElementById("grid").innerHTML = list.map(cardHTML).join("");
   document.getElementById("empty").style.display = list.length ? "none" : "block";
   document.getElementById("count").textContent = list.length + " " +
