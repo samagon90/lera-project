@@ -13,7 +13,7 @@ const ADMIN_AUTH = (() => {
   // 2026-09-06: пароль сброшен владельцем после блокировки доступа.
   const HASH = "95315a5b76ff56a9488900d611fb5a8360d5924744254bd722461d997e492e5b";
   const SESSION_KEY = "darles_admin_session";
-  const SESSION_VERSION = 3; // поднят при сбросе пароля — старые сессии автоматически сбрасываются
+  const SESSION_VERSION = 4; // поднят при переименовании панели (js/_panel.inc -> js/panel.inc) — старые сессии автоматически сбрасываются
   const ATTEMPTS_KEY = "darles_admin_attempts";
   const MAX_ATTEMPTS = 5;
   const LOCKOUT_MS = 5 * 60 * 1000; // 5 минут блокировки после 5 неудачных попыток
