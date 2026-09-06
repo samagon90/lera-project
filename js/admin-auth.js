@@ -10,8 +10,10 @@ const ADMIN_AUTH = (() => {
   // ------ НАСТРОЙКИ ------
   const SALT = "darles_salt_w79r4l905";
   // HASH = SHA-256(salt + ":" + password). Сменить пароль — см. инструкцию в конце файла.
-  const HASH = "0fce33323be2f87efa131b45b7a115c9eb561d151b9a7dc7ad750bae62bd2152";
+  // 2026-09-06: пароль сброшен владельцем после блокировки доступа.
+  const HASH = "95315a5b76ff56a9488900d611fb5a8360d5924744254bd722461d997e492e5b";
   const SESSION_KEY = "darles_admin_session";
+  const SESSION_VERSION = 3; // поднят при сбросе пароля — старые сессии автоматически сбрасываются
   const ATTEMPTS_KEY = "darles_admin_attempts";
   const MAX_ATTEMPTS = 5;
   const LOCKOUT_MS = 5 * 60 * 1000; // 5 минут блокировки после 5 неудачных попыток
@@ -41,14 +43,14 @@ const ADMIN_AUTH = (() => {
   function isLoggedIn() {
     try {
       const s = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
-      return s && s.v === 2 && s.hash === HASH && s.exp > Date.now();
+      return s && s.v === SESSION_VERSION && s.hash === HASH && s.exp > Date.now();
     } catch { return false; }
   }
 
   function saveSession() {
     // Сессия живёт 24 часа с момента входа (или до закрытия вкладки)
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({
-      v: 2, hash: HASH, exp: Date.now() + 24 * 60 * 60 * 1000
+      v: SESSION_VERSION, hash: HASH, exp: Date.now() + 24 * 60 * 60 * 1000
     }));
   }
 
@@ -186,7 +188,12 @@ const ADMIN_AUTH = (() => {
     location.href = "index.html";
   }
 
-  return { requireAuth, logout, isLoggedIn };
+  // Используется админ-панелью для смены пароля без консоли.
+  async function hashPassword(password) {
+    return sha256(SALT + ":" + password);
+  }
+
+  return { requireAuth, logout, isLoggedIn, hashPassword };
 })();
 
 

@@ -686,6 +686,57 @@ function saveDraft() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Смена пароля админ-панели                                           */
+/* ------------------------------------------------------------------ */
+async function changeAdminPassword() {
+  if (!ghPush) {
+    alert("Смена пароля требует подключённый GitHub с правом записи.\n\nОткройте «Настройки публикации», введите fine-grained токен (Contents: Read and write) и нажмите «Сохранить и проверить».");
+    return;
+  }
+  if (typeof ADMIN_AUTH?.hashPassword !== "function") {
+    alert("Не удалось загрузить утилиту смены пароля. Обновите страницу: Ctrl+F5.");
+    return;
+  }
+  const p1 = prompt("Введите новый пароль (минимум 4 символа):");
+  if (!p1 || p1.length < 4) { alert("Пароль должен содержать минимум 4 символа."); return; }
+  const p2 = prompt("Повторите новый пароль:");
+  if (p1 !== p2) { alert("Пароли не совпадают — попробуйте ещё раз."); return; }
+
+  const btn = $("btnChangePass");
+  if (btn) btn.disabled = true;
+  $("publog").innerHTML = "";
+  logLine("", "Считаю актуальные файлы админки…");
+  try {
+    const [authRes, htmlRes] = await Promise.all([
+      ghGetFile("js/admin-auth.js"),
+      ghGetFile("admin.html")
+    ]);
+    const oldHash = (authRes.text.match(/const HASH = "([0-9a-f]{64})"/) || [])[1];
+    if (!oldHash) throw new Error("в js/admin-auth.js не найден HASH");
+
+    const newHash = await ADMIN_AUTH.hashPassword(p1);
+    const oldVer = (htmlRes.text.match(/admin-auth\.js\?v=(\d+)/) || [])[1] || "3";
+    const newVer = String(Number(oldVer) + 1);
+
+    let auth = authRes.text
+      .replace(oldHash, newHash)
+      .replace(/const SESSION_VERSION = \d+;/, `const SESSION_VERSION = ${newVer};`);
+    let html = htmlRes.text
+      .split("?v=" + oldVer).join("?v=" + newVer)
+      .replace(new RegExp("if \\(s && s\\.v !== " + oldVer + "\\)", "g"), `if (s && s.v !== ${newVer})`);
+
+    logLine("", `Загружаю на GitHub файлы версии ${newVer}…`);
+    await ghPutFile("js/admin-auth.js", utf8b64(auth), "[admin] Смена пароля админ-панели", authRes.sha);
+    await ghPutFile("admin.html", utf8b64(html), `[admin] Смена пароля админ-панели (версия ${newVer})`, htmlRes.sha);
+    logLine("ok", "Пароль изменён на GitHub. Выйдите из панели и войдите с новым паролем.");
+  } catch (e) {
+    logLine("err", "Ошибка смены пароля: " + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Инициализация                                                       */
 /* ------------------------------------------------------------------ */
 $("btnSettings").addEventListener("click", () => {
@@ -708,6 +759,7 @@ $("btnPublish").addEventListener("click", publish);
 $("btnSaveDraft").addEventListener("click", saveDraft);
 $("btnDownload").addEventListener("click", downloadFiles);
 $("btnReset").addEventListener("click", resetForm);
+$("btnChangePass").addEventListener("click", changeAdminPassword);
 
 initDropzone();
 $("cfgRepo").value = cfg.repo;
