@@ -29,7 +29,11 @@
       </label>
     </div>
     <label>Токен GitHub <span class="muted">(fine-grained, право Contents: Read and write — только для этого репозитория)</span>
-      <input id="cfgToken" type="password" placeholder="github_pat_…" autocomplete="off">
+      <div class="pass-wrap">
+        <input id="cfgToken" type="password" placeholder="github_pat_…" autocomplete="off">
+        <button class="pass-eye" id="cfgTokenEye" type="button" aria-label="Показать токен" title="Показать / скрыть">👁</button>
+      </div>
+      <span class="muted small">Кнопка 👁 — показать/скрыть введённый токен. Это токен GitHub, а не пароль от панели: пароль от входа хранится отдельно.</span>
     </label>
     <p class="muted small">Как получить токен: github.com → Settings → Developer settings →
       Fine-grained tokens → Generate new token → в «Repository access» выберите только lera-project,
@@ -110,6 +114,29 @@
         <span class="muted small" id="aiHint"></span>
       </div>
       <div class="ai-result" id="aiResult" style="display:none"></div>
+
+      <!-- ===== ОФЛАЙН-РАСПОЗНАВАНИЕ (БЕЗ API): по каталогу + поиск описания ===== -->
+      <div class="ai-result doc-offline" id="offlineIdPanel" style="display:none">
+        <div class="ai-result__head">
+          <b>🌿 Определение без API</b>
+          <span class="ai-result__conf">по фото и каталогу</span>
+        </div>
+        <p class="muted small">Работает в браузере: никаких ключей, оплаты и отправки фото. Название, категория, подпись и описание уже заполнены из каталога — проверьте и при необходимости выберите другой вариант.</p>
+        <label class="offline-label">Похоже на
+          <select id="idMatch"></select>
+        </label>
+        <p class="muted small">Если нужного описания нет — откройте поисковик и скопируйте текст в поле «Описание».</p>
+        <div class="ai-result__actions">
+          <button class="btn btn--ghost btn--sm" id="btnOfflineUndo" type="button">Отменить заполнение</button>
+          <button class="btn btn--ghost btn--sm" id="btnOfflineHide" type="button">Скрыть</button>
+        </div>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn--ghost btn--sm" id="btnSearchG" type="button">🔎 Google по названию</button>
+          <button class="btn btn--ghost btn--sm" id="btnSearchY" type="button">🔎 Яндекс по названию</button>
+          <button class="btn btn--ghost btn--sm" id="btnSearchPhotoY" type="button">🖼 По фото: Яндекс</button>
+          <button class="btn btn--ghost btn--sm" id="btnSearchPhotoG" type="button">🖼 По фото: Google Lens</button>
+        </div>
+      </div>
 
       <div class="field-row">
         <label>Название *

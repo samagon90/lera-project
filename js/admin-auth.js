@@ -13,7 +13,7 @@ const ADMIN_AUTH = (() => {
   // 2026-09-06: пароль сброшен владельцем после блокировки доступа.
   const HASH = "95315a5b76ff56a9488900d611fb5a8360d5924744254bd722461d997e492e5b";
   const SESSION_KEY = "darles_admin_session";
-  const SESSION_VERSION = 4; // поднят при переименовании панели (js/_panel.inc -> js/panel.inc) — старые сессии автоматически сбрасываются
+  const SESSION_VERSION = 5; // поднят при добавлении кнопки «показать пароль» и офлайн-распознавания — старые сессии автоматически сбрасываются
   const ATTEMPTS_KEY = "darles_admin_attempts";
   const MAX_ATTEMPTS = 5;
   const LOCKOUT_MS = 5 * 60 * 1000; // 5 минут блокировки после 5 неудачных попыток
@@ -95,7 +95,10 @@ const ADMIN_AUTH = (() => {
         <p class="auth__sub">«ДарЛес» — питомник декоративных растений</p>
         <label class="auth__label">
           <span>Пароль</span>
-          <input type="password" id="authPass" placeholder="Введите пароль" autofocus autocomplete="current-password" ${lockLeft>0?"disabled":""}>
+          <div class="auth-pass-wrap">
+            <input type="password" id="authPass" placeholder="Введите пароль" autofocus autocomplete="current-password" ${lockLeft>0?"disabled":""}>
+            <button class="auth-eye" id="authEye" type="button" aria-label="Показать пароль" title="Показать / скрыть пароль">👁</button>
+          </div>
         </label>
         <button class="auth__btn" type="submit" ${lockLeft>0?"disabled":""}>Войти</button>
         <div class="auth__err" id="authErr" ${lockMsg?`style="display:block"`:""}>${lockMsg}</div>
@@ -121,6 +124,11 @@ const ADMIN_AUTH = (() => {
         .auth__label input{width:100%;padding:13px 16px;border:2px solid #d4ddd6;border-radius:12px;
           font:inherit;font-size:15px;outline:none;transition:.2s;background:#fafcfa}
         .auth__label input:focus{border-color:#3c6b4c;background:#fff}
+        .auth-pass-wrap{position:relative}
+        .auth-pass-wrap input{padding-right:52px}
+        .auth-eye{position:absolute;right:8px;top:7px;width:36px;height:36px;border:0;border-radius:50%;
+          background:transparent;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;color:#3c6b4c}
+        .auth-eye:hover{background:#e5efe8}
         .auth__btn{width:100%;padding:14px;border:0;border-radius:12px;background:#3c6b4c;
           color:#fff;font:inherit;font-size:15px;font-weight:600;cursor:pointer;transition:.2s;margin-top:4px}
         .auth__btn:hover:not(:disabled){background:#2f5540}
@@ -136,6 +144,15 @@ const ADMIN_AUTH = (() => {
     const errEl = document.getElementById("authErr");
     const input = document.getElementById("authPass");
     if (input && !input.disabled) input.focus();
+
+    const eye = document.getElementById("authEye");
+    if (eye) eye.addEventListener("click", e => {
+      e.preventDefault();
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      eye.textContent = show ? "🙈" : "👁";
+      eye.setAttribute("aria-label", show ? "Скрыть пароль" : "Показать пароль");
+    });
 
     form.addEventListener("submit", async e => {
       e.preventDefault();
