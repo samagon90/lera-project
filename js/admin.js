@@ -19,6 +19,8 @@ let ghPush = false;        // есть ли право на запись
 let photos = [];           // [{ dataURL, name }] — dataURL уже обработанного фото
 let editingId = null;      // id растения, которое редактируем (или null)
 let drafts = loadDrafts();
+let recogCandidates = [];  // кандидаты автоопределения растения (без API)
+let recogPrev = null;      // снимок полей до офлайн-заполнения
 
 /* ------------------------------------------------------------------ */
 /* Утилиты                                                             */
@@ -296,8 +298,9 @@ async function addFiles(files) {
       } else {
         dataURL = await blobToDataURL(f);
       }
-      photos.push({ originalDataURL: dataURL, dataURL, state: null });
+      photos.push({ originalDataURL: dataURL, dataURL, state: null, name: f.name || "" });
       logLine("ok", `Фото готово (${photos.length === 1 ? "главное" : "доп. " + (photos.length - 1)}). Кнопка ✏️ — сменить фон и выровнять.`);
+      if (photos.length === 1) setTimeout(() => recognizePhoto(photos[0]), 160);
     } catch (e) {
       logLine("err", "Ошибка фото: " + e.message);
     }
@@ -331,10 +334,106 @@ function renderThumbs() {
   $("dzThumbs").querySelectorAll(".dz-thumb__x").forEach(b =>
     b.addEventListener("click", () => {
       photos.splice(+b.dataset.i, 1);
+      if (!photos.length) hideOfflineRecognition();
       renderThumbs(); renderPreview();
     }));
   $("dzThumbs").querySelectorAll(".dz-thumb__edit").forEach(b =>
     b.addEventListener("click", () => openEditor(+b.dataset.i)));
+}
+
+/* ------------------------------------------------------------------ */
+/* Офлайн-распознавание растения по фото (без API)                      */
+/* ------------------------------------------------------------------ */
+async function recognizePhoto(photo) {
+  if (typeof PlantID === "undefined") return;
+  try {
+    const res = await PlantID.detect(photo.dataURL, photo.name || "");
+    if (!res.candidates || !res.candidates.length) {
+      hideOfflineRecognition();
+      logLine("", "Определение без API: уверенного совпадения нет — заполните название и описание вручную.");
+      return;
+    }
+    showOfflineRecognition(res);
+  } catch (e) {
+    logLine("err", "Определение без API: " + e.message);
+  }
+}
+
+function showOfflineRecognition(res) {
+  recogCandidates = res.candidates;
+  const cat = key => ({ hvoynye: "хвойное", listvennye: "лиственное", mnogoletnie: "многолетнее" }[key] || key);
+  const box = $("offlineIdPanel");
+  if (!box) return;
+  box.style.display = "block";
+  $("idMatch").innerHTML =
+    `<option value="-1">Не заполнять — ввести вручную</option>` +
+    recogCandidates.map((c, i) =>
+      `<option value="${i}">${esc(c.product.name)} · ${cat(c.product.category)} · ${Math.round(c.confidence * 100)}%</option>`
+    ).join("");
+  const top = recogCandidates[0];
+  $("idMatch").value = "0";
+  recogPrev = collectForm();
+  applyOfflineProduct(top.product);
+  logLine("ok", "Без API: похоже на «" + top.product.name + "» (≈ " + Math.round(top.confidence * 100) + "%). Проверьте поля, при необходимости выберите другой вариант.");
+  $("btnOfflineUndo").onclick = () => {
+    if (!recogPrev) return;
+    $("fName").value = recogPrev.name || "";
+    $("fCategory").value = recogPrev.category || "hvoynye";
+    $("fShort").value = recogPrev.short || "";
+    $("fDesc").value = recogPrev.description || "";
+    renderPreview();
+    logLine("", "Заполнение без API отменено.");
+  };
+  $("btnOfflineHide").onclick = () => { $("offlineIdPanel").style.display = "none"; };
+}
+
+function applyOfflineProduct(p) {
+  $("fName").value = p.name;
+  $("fCategory").value = p.category;
+  $("fShort").value = p.short || "";
+  $("fDesc").value = p.description || "";
+  renderPreview();
+}
+
+function hideOfflineRecognition() {
+  recogCandidates = [];
+  const box = $("offlineIdPanel");
+  if (box) box.style.display = "none";
+}
+
+/* ---------- поиск описания в интернете (без API, открывает поисковик) ---------- */
+function currentRecogProduct() {
+  return recogCandidates[0]?.product || (editingId != null ? PRODUCTS.find(x => x.id === editingId) : null);
+}
+function publicImageUrl(path) {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  return "https://samagon90.github.io/lera-project/" + String(path).replace(/^\.?\//, "");
+}
+function openSearch(engine, query) {
+  const q = encodeURIComponent(query);
+  const urls = {
+    google: "https://www.google.com/search?q=" + q,
+    yandex: "https://yandex.ru/search/?text=" + q,
+    lens: "https://lens.google.com/uploadbyurl?url=" + q,
+    yandexPhoto: "https://yandex.ru/images/search?rpt=imageview&url=" + q,
+  };
+  window.open(urls[engine] || urls.google, "_blank", "noopener");
+}
+function searchSelectedProduct(engine) {
+  const p = currentRecogProduct();
+  if (!p || !p.name) { logLine("", "Сначала выберите растение — поиск нечего искать."); return; }
+  openSearch(engine, p.name + " растение описание уход посадка");
+}
+function searchPhoto(engine) {
+  const p = currentRecogProduct();
+  const img = publicImageUrl(p?.image);
+  if (!img) {
+    logLine("", "Поиск по фото возможен после публикации фото (нужна публичная ссылка). Открываю поиск по названию.");
+    searchSelectedProduct(engine === "lens" ? "google" : "yandex");
+    return;
+  }
+  openSearch(engine, img);
 }
 
 /* ------------------------------------------------------------------ */
@@ -398,6 +497,7 @@ function resetForm() {
   if ($("fAvailable")) $("fAvailable").checked = true;
   const aiBox = $("aiResult"); if (aiBox) aiBox.style.display = "none";
   aiPrev = null;
+  hideOfflineRecognition(); recogPrev = null;
   $("btnReset").style.display = "none";
   $("formTitle").textContent = "Добавить растение";
   $("btnPublish").textContent = "Опубликовать на сайт";
@@ -778,6 +878,7 @@ function startEdit(id) {
   $("fDesc").value = p.description || "";
   if ($("fAvailable")) $("fAvailable").checked = p.available !== false;
   photos = [];
+  hideOfflineRecognition(); recogPrev = null;
   renderThumbs();
   // предпросмотр с текущим фото с сайта
   $("preview").innerHTML = `
@@ -810,9 +911,10 @@ function loadDraftToForm(i) {
   $("fPrice").value = d.price ?? ""; $("fShort").value = d.short || "";
   $("fDesc").value = d.description || "";
   photos = [
-    ...(d.imageDataURL ? [{ originalDataURL: d.imageDataURL, dataURL: d.imageDataURL, state: null }] : []),
-    ...(d.galleryDataURLs || []).map(u => ({ originalDataURL: u, dataURL: u, state: null }))
+    ...(d.imageDataURL ? [{ originalDataURL: d.imageDataURL, dataURL: d.imageDataURL, state: null, name: d.name || "" }] : []),
+    ...(d.galleryDataURLs || []).map(u => ({ originalDataURL: u, dataURL: u, state: null, name: "" }))
   ];
+  hideOfflineRecognition(); recogPrev = null;
   renderThumbs(); renderPreview();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -1092,6 +1194,27 @@ $("btnSaveDraft").addEventListener("click", saveDraft);
 $("btnDownload").addEventListener("click", downloadFiles);
 $("btnReset").addEventListener("click", resetForm);
 $("btnChangePass").addEventListener("click", changeAdminPassword);
+
+/* --- офлайн-распознавание и поиск --- */
+$("idMatch").addEventListener("change", e => {
+  const v = e.target.value;
+  if (v === "-1") return;
+  const c = recogCandidates[+v];
+  if (c) { recogPrev = collectForm(); applyOfflineProduct(c.product); }
+});
+$("cfgTokenEye").addEventListener("click", e => {
+  e.preventDefault();
+  const inp = $("cfgToken");
+  const show = inp.type === "password";
+  inp.type = show ? "text" : "password";
+  $("cfgTokenEye").textContent = show ? "🙈" : "👁";
+  $("cfgTokenEye").setAttribute("aria-label", show ? "Скрыть токен" : "Показать токен");
+  inp.focus();
+});
+$("btnSearchG").addEventListener("click", () => searchSelectedProduct("google"));
+$("btnSearchY").addEventListener("click", () => searchSelectedProduct("yandex"));
+$("btnSearchPhotoY").addEventListener("click", () => searchPhoto("yandexPhoto"));
+$("btnSearchPhotoG").addEventListener("click", () => searchPhoto("lens"));
 
 /* --- каталог: фильтры и массовое наличие --- */
 $("tblSearch").addEventListener("input", renderTable);

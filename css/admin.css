@@ -32,6 +32,13 @@
 .check{display:flex!important;align-items:center;gap:10px;font-size:14px;font-weight:500!important;margin:14px 0 4px}
 .check input{width:18px;height:18px;accent-color:var(--green)}
 
+/* --- показ/скрытие токена --- */
+.pass-wrap{position:relative}
+.pass-wrap input{padding-right:52px}
+.pass-eye{position:absolute;right:8px;top:7px;width:36px;height:36px;border:0;border-radius:50%;
+  background:transparent;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center}
+.pass-eye:hover{background:var(--gray-light)}
+
 .btn--sm{padding:11px 26px!important;font-size:13px!important}
 .btn-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}
 
@@ -133,6 +140,9 @@
 .ai-result__head b{color:var(--green)}
 .ai-result__conf{font-size:13px;color:var(--gray)}
 .ai-result__actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.offline-label{display:block;font-weight:600;font-size:14px;margin:10px 0}
+.offline-label select{width:100%;font:inherit;font-weight:400;padding:10px 14px;margin-top:7px;
+  border:1px solid var(--line);border-radius:10px;color:var(--black);background:#fff}
 
 /* ===== ТАБЛИЦА КАТАЛОГА ===== */
 .ptools{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:4px 0 16px}
