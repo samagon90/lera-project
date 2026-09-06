@@ -188,7 +188,12 @@ const ADMIN_AUTH = (() => {
     location.href = "index.html";
   }
 
-  return { requireAuth, logout, isLoggedIn };
+  // Используется админ-панелью для смены пароля без консоли.
+  async function hashPassword(password) {
+    return sha256(SALT + ":" + password);
+  }
+
+  return { requireAuth, logout, isLoggedIn, hashPassword };
 })();
 
 

@@ -41,6 +41,14 @@
     </div>
     <p class="muted small">Без токена панель работает в «локальном режиме»: кнопка «Скачать файлы»
       выдаст готовые файлы — их нужно загрузить в репозиторий вручную (кнопка Add file → Upload files).</p>
+
+    <hr style="margin:26px 0 18px;border:0;border-top:1px solid #e3e9e5">
+    <h4>Пароль админ-панели</h4>
+    <p class="muted small">Смена выполняется прямо на GitHub, если подключён токен с правом записи.
+      Вход после смены — уже с новым паролем.</p>
+    <div class="btn-row">
+      <button class="btn btn--ghost btn--sm" id="btnChangePass" type="button">Сменить пароль</button>
+    </div>
   </div>
 </section>
 
