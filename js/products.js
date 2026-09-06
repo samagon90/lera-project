@@ -11,6 +11,10 @@
      name        — название растения, в кавычках
      category    — ровно одно из: "hvoynye" | "listvennye" | "mnogoletnie"
      price       — цена числом, без пробелов и без знака ₽  (например 1500)
+     available   — true/false: есть ли растение в продаже.
+                   false — на сайте появится отметка «Нет в наличии»,
+                   карточка уедет в конец каталога. Включать/выключать
+                   удобнее всего переключателем в админ-панели.
      image       — путь к главному фото, например "images/catalog/tuya.jpg"
      gallery     — доп. фото (можно оставить пустым: [])
      short       — короткая подпись под названием в карточке (1 строка)
@@ -26,6 +30,7 @@ const PRODUCTS = [
     name: "Можжевельник чешуйчатый «Blue Star»",
     category: "hvoynye",
     price: 900,
+    available: true,
     image: "images/catalog/10.jpg",
     gallery: [],
     short: "Компактная голубая подушка для рокария",
@@ -44,6 +49,7 @@ const PRODUCTS = [
     name: "Аукуба японская «Variegata»",
     category: "listvennye",
     price: 1400,
+    available: true,
     image: "images/catalog/11.jpg",
     gallery: [],
     short: "Вечнозелёный кустарник с «золотыми» листьями",
@@ -62,6 +68,7 @@ const PRODUCTS = [
     name: "Можжевельник средний «Variegata»",
     category: "hvoynye",
     price: 1100,
+    available: true,
     image: "images/catalog/12.jpg",
     gallery: [],
     short: "Раскидистый хвойник с кремовыми кончиками",
@@ -80,6 +87,7 @@ const PRODUCTS = [
     name: "Барбарис Тунберга",
     category: "listvennye",
     price: 600,
+    available: true,
     image: "images/catalog/13.jpg",
     gallery: [],
     short: "Огненная листва и колючая живая изгородь",
@@ -98,6 +106,7 @@ const PRODUCTS = [
     name: "Можжевельник казацкий",
     category: "hvoynye",
     price: 850,
+    available: true,
     image: "images/catalog/14.jpg",
     gallery: [],
     short: "Почвопокровный хвойник для склонов",
@@ -116,6 +125,7 @@ const PRODUCTS = [
     name: "Можжевельник горизонтальный «Blue Chip»",
     category: "hvoynye",
     price: 950,
+    available: true,
     image: "images/catalog/15.jpg",
     gallery: [],
     short: "Голубой хвойный «ковёр»",
@@ -134,6 +144,7 @@ const PRODUCTS = [
     name: "Можжевельник китайский",
     category: "hvoynye",
     price: 1000,
+    available: true,
     image: "images/catalog/16.jpg",
     gallery: [],
     short: "Пластичный хвойник для композиций",
@@ -152,6 +163,7 @@ const PRODUCTS = [
     name: "Гортензия крупнолистная",
     category: "listvennye",
     price: 1300,
+    available: true,
     image: "images/catalog/17.jpg",
     gallery: [],
     short: "Пышные шаровидные соцветия всё лето",
@@ -170,6 +182,7 @@ const PRODUCTS = [
     name: "Фотиния Фразера «Red Robin»",
     category: "listvennye",
     price: 1600,
+    available: true,
     image: "images/catalog/18.jpg",
     gallery: [],
     short: "Вечнозелёный кустарник с алой молодой листвой",
@@ -188,6 +201,7 @@ const PRODUCTS = [
     name: "Лагерстрёмия индийская",
     category: "listvennye",
     price: 2400,
+    available: true,
     image: "images/catalog/19.jpg",
     gallery: [],
     short: "«Индийская сирень» — цветение до осени",
@@ -206,6 +220,7 @@ const PRODUCTS = [
     name: "Пеннисетум лисохвостный",
     category: "mnogoletnie",
     price: 450,
+    available: true,
     image: "images/catalog/20.jpg",
     gallery: [],
     short: "Декоративный злак с пушистыми колосками",
@@ -224,6 +239,7 @@ const PRODUCTS = [
     name: "Просо прутьевидное",
     category: "mnogoletnie",
     price: 500,
+    available: true,
     image: "images/catalog/21.jpg",
     gallery: [],
     short: "Воздушный злак-вертикаль для миксбордера",
@@ -242,6 +258,7 @@ const PRODUCTS = [
     name: "Хоста гибридная",
     category: "mnogoletnie",
     price: 400,
+    available: true,
     image: "images/catalog/22.jpg",
     gallery: [],
     short: "Главный многолетник для тенистых уголков",

@@ -49,6 +49,37 @@
     <div class="btn-row">
       <button class="btn btn--ghost btn--sm" id="btnChangePass" type="button">Сменить пароль</button>
     </div>
+
+    <hr style="margin:26px 0 18px;border:0;border-top:1px solid #e3e9e5">
+    <h4>ИИ-помощник (распознавание растений по фото)</h4>
+    <p class="muted small">Помощник смотрит на загруженное фото и сам заполняет название, категорию,
+      короткую подпись и описание. Вы всё правите руками — и только потом публикуете.</p>
+    <div class="field-row">
+      <label>Провайдер
+        <select id="aiProvider">
+          <option value="openai">OpenAI</option>
+          <option value="gemini">Google Gemini</option>
+          <option value="anthropic">Anthropic Claude</option>
+        </select>
+      </label>
+      <label>Модель <span class="muted">(можно вписать свою)</span>
+        <input id="aiModel" type="text" list="aiModelList" placeholder="модель по умолчанию" autocomplete="off">
+        <datalist id="aiModelList"></datalist>
+      </label>
+    </div>
+    <label>Ключ API
+      <input id="aiKey" type="password" placeholder="sk-… / AIza… / sk-ant-…" autocomplete="off">
+    </label>
+    <p class="muted small">Ключ хранится только в вашем браузере и уходит только на сервер выбранного
+      провайдера: запрос идёт напрямую, своего сервера у сайта нет. Модель смотрит картинку,
+      поэтому провайдер берёт за запрос небольшую плату (обычно доли цента).
+      Ключи: OpenAI — platform.openai.com/api-keys, Gemini — aistudio.google.com/apikey,
+      Claude — console.anthropic.com/settings/keys.</p>
+    <div class="btn-row">
+      <button class="btn btn--sm" id="btnAiSave" type="button">Сохранить и проверить</button>
+      <button class="btn btn--ghost btn--sm" id="btnAiForget" type="button">Забыть ключ</button>
+    </div>
+    <p class="muted small" id="aiTestNote"></p>
   </div>
 </section>
 
@@ -72,6 +103,14 @@
       <label class="check"><input type="checkbox" id="optTrim" checked>
         Автообработка фото: обрезать белые поля и привести к формату карточки 3:4</label>
 
+      <!-- ===== ИИ-ПОМОЩНИК: определяет растение по фото ===== -->
+      <div class="ai-row">
+        <button class="btn btn--ai btn--sm" id="btnAI" type="button">🤖 Определить растение по фото</button>
+        <button class="btn btn--ghost btn--sm" id="btnAiSettings" type="button">Настроить ИИ</button>
+        <span class="muted small" id="aiHint"></span>
+      </div>
+      <div class="ai-result" id="aiResult" style="display:none"></div>
+
       <div class="field-row">
         <label>Название *
           <input id="fName" type="text" placeholder="Туя западная «Брабант»">
@@ -87,6 +126,9 @@
           <input id="fPrice" type="number" min="0" step="50" placeholder="1300">
         </label>
       </div>
+
+      <label class="check"><input type="checkbox" id="fAvailable" checked>
+        В наличии <span class="muted">(выключите — и растение на сайте получит отметку «Нет в наличии»)</span></label>
 
       <label>Короткая подпись в карточке
         <input id="fShort" type="text" placeholder="Быстрорастущая туя для высокой изгороди" maxlength="70">
@@ -115,10 +157,28 @@
     </aside>
   </div>
 
-  <!-- ================= КАТАЛОГ ================= -->
+  <!-- ================= КАТАЛОГ (таблица) ================= -->
   <section class="panel" style="margin-top:34px">
-    <h3>Растения на сайте <span class="muted small" id="prodCount"></span></h3>
+    <h3>Каталог товаров <span class="muted small" id="prodCount"></span></h3>
     <p class="muted small" id="tblNote"></p>
+
+    <div class="ptools">
+      <input id="tblSearch" type="search" placeholder="Поиск по названию…" autocomplete="off">
+      <select id="tblCat">
+        <option value="">Все категории</option>
+        <option value="hvoynye">Хвойные</option>
+        <option value="listvennye">Лиственные</option>
+        <option value="mnogoletnie">Многолетние</option>
+      </select>
+      <select id="tblAvail">
+        <option value="">Любое наличие</option>
+        <option value="in">Только в наличии</option>
+        <option value="out">Только отсутствующие</option>
+      </select>
+      <button class="btn btn--ghost btn--sm" id="btnAllIn" type="button" title="Включить наличие у всех">Включить все</button>
+      <button class="btn btn--ghost btn--sm" id="btnAllOut" type="button" title="Выключить наличие у всех">Выключить все</button>
+    </div>
+
     <div class="admin__table" id="prodTable"></div>
   </section>
 </main>

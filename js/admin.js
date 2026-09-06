@@ -25,7 +25,11 @@ let drafts = loadDrafts();
 /* ------------------------------------------------------------------ */
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const money = n => new Intl.NumberFormat("ru-RU").format(n) + " ₽";
+/* money() объявляет js/site.js — он загружается раньше этой панели.
+   Раньше здесь было точно такое же объявление, и из-за него весь admin.js
+   падал с SyntaxError «Identifier money has already been declared»,
+   поэтому у своей функции другое имя. */
+const fmtMoney = n => new Intl.NumberFormat("ru-RU").format(n) + " ₽";
 
 function utf8b64(str) {
   const bytes = new TextEncoder().encode(str);
@@ -146,6 +150,7 @@ const FILE_HEADER = `/* ========================================================
      id  — уникальный номер (у нового: +1 к последнему)
      category — одно из: "hvoynye" | "listvennye" | "mnogoletnie"
      price — цена числом, без пробелов и ₽
+     available — true/false: есть ли растение в продаже (false = «Нет в наличии»)
      image — путь к фото, например "images/catalog/23.jpg"
      gallery — доп. фото: ["images/catalog/23-1.jpg"] или []
      short — короткая подпись в карточке
@@ -161,6 +166,7 @@ function productToJS(p) {
     name: ${q(p.name)},
     category: ${q(p.category)},
     price: ${Number(p.price)},
+    available: ${p.available === false ? "false" : "true"},
     image: ${q(p.image)},
     gallery: ${JSON.stringify(p.gallery || [])},
     short: ${q(p.short || "")},
@@ -341,6 +347,7 @@ function collectForm() {
     name,
     category: $("fCategory").value,
     price: isNaN(price) ? null : price,
+    available: $("fAvailable") ? $("fAvailable").checked : true,
     short: $("fShort").value.trim(),
     description: $("fDesc").value.trim(),
   };
@@ -349,16 +356,23 @@ function collectForm() {
 function renderPreview() {
   const f = collectForm();
   const img = photos[0]?.dataURL || "images/site/7.jpg";
-  const cat = { hvoynye: "Хвойные", listvennye: "Лиственные", mnogoletnie: "Многолетние" }[f.category];
+  const cat = catTitle(f.category);
+  const out = f.available === false;
   $("preview").innerHTML = `
-    <a class="card" href="javascript:void(0)">
-      <div class="card__img"><img src="${img}" alt=""><span class="card__tag">${cat}</span></div>
+    <a class="card ${out ? "card--out" : ""}" href="javascript:void(0)">
+      <div class="card__img">
+        <img src="${img}" alt="">
+        <span class="card__tag">${cat}</span>
+        ${out ? '<span class="card__out">Нет в наличии</span>' : ""}
+      </div>
       <div class="card__body">
         <div class="card__name">${esc(f.name) || "Название растения"}</div>
         <div class="card__short">${esc(f.short) || "короткая подпись"}</div>
         <div class="card__bottom">
-          <span class="card__price">${f.price != null ? money(f.price) : "— ₽"}</span>
-          <span class="card__more">Подробнее →</span>
+          ${out
+            ? '<span class="card__price card__price--out">Нет в наличии</span>'
+            : `<span class="card__price">${f.price != null ? fmtMoney(f.price) : "— ₽"}</span>`}
+          <span class="card__more">${out ? "Смотреть →" : "Подробнее →"}</span>
         </div>
       </div>
     </a>
@@ -366,6 +380,7 @@ function renderPreview() {
 }
 ["fName", "fCategory", "fPrice", "fShort", "fDesc"].forEach(id =>
   document.addEventListener("input", e => { if (e.target.id === id) renderPreview(); }));
+if ($("fAvailable")) $("fAvailable").addEventListener("change", renderPreview);
 
 function validate(f, isNew) {
   const errs = [];
@@ -380,6 +395,9 @@ function resetForm() {
   photos = [];
   ["fName", "fPrice", "fShort", "fDesc"].forEach(id => $(id).value = "");
   $("fCategory").value = "hvoynye";
+  if ($("fAvailable")) $("fAvailable").checked = true;
+  const aiBox = $("aiResult"); if (aiBox) aiBox.style.display = "none";
+  aiPrev = null;
   $("btnReset").style.display = "none";
   $("formTitle").textContent = "Добавить растение";
   $("btnPublish").textContent = "Опубликовать на сайт";
@@ -389,54 +407,364 @@ function resetForm() {
 /* ------------------------------------------------------------------ */
 /* Таблица растений + черновики                                        */
 /* ------------------------------------------------------------------ */
-function renderTable() {
-  const rows = [
-    ...drafts.map((d, i) => ({ draft: d, i })),
-    ...PRODUCTS.map(p => ({ p }))
-  ];
-  $("prodCount").textContent = `— ${PRODUCTS.length} на сайте${drafts.length ? `, черновиков: ${drafts.length}` : ""}`;
-
-  $("prodTable").innerHTML = rows.map(r => {
-    if (r.draft) {
-      const d = r.draft;
-      return `<div class="prow">
-        <img src="${d.imageDataURL || "images/site/7.jpg"}" alt="">
-        <div>
-          <div class="prow__name">${esc(d.name || "Без названия")}<span class="tag-draft">черновик</span></div>
-          <div class="prow__meta">${catTitle(d.category)}${d.price != null ? " · " + money(d.price) : ""}</div>
-        </div>
-        <div class="prow__actions">
-          <button class="prow__btn" data-act="editdraft" data-i="${r.i}">В форму</button>
-          <button class="prow__btn prow__btn--danger" data-act="deldraft" data-i="${r.i}">Удалить</button>
-        </div>
-      </div>`;
-    }
-    const p = r.p;
-    return `<div class="prow">
-      <img src="${p.image}" alt="" loading="lazy">
-      <div>
-        <div class="prow__name">${esc(p.name)}</div>
-        <div class="prow__meta">${catTitle(p.category)} · ${money(p.price)} · id ${p.id}${(p.gallery || []).length ? ` · фото: ${p.gallery.length + 1}` : ""}</div>
-      </div>
-      <div class="prow__actions">
-        <button class="prow__btn" data-act="edit" data-id="${p.id}">Изменить</button>
-        <button class="prow__btn prow__btn--danger" data-act="del" data-id="${p.id}">Удалить</button>
-      </div>
-    </div>`;
-  }).join("");
-
-  $("prodTable").querySelectorAll(".prow__btn").forEach(b => b.addEventListener("click", () => {
-    const act = b.dataset.act;
-    if (act === "edit") startEdit(+b.dataset.id);
-    if (act === "del") deleteProduct(+b.dataset.id);
-    if (act === "editdraft") loadDraftToForm(+b.dataset.i);
-    if (act === "deldraft") {
-      if (confirm("Удалить черновик из браузера?")) {
-        drafts.splice(+b.dataset.i, 1); saveDrafts(); renderTable();
-      }
-    }
-  }));
+/* ------------------------------------------------------------------ */
+/* Таблица каталога: фото, название, категория, цена, наличие, действия  */
+/* ------------------------------------------------------------------ */
+function filteredProducts() {
+  const q = ($("tblSearch")?.value || "").trim().toLowerCase();
+  const cat = $("tblCat")?.value || "";
+  const avail = $("tblAvail")?.value || "";
+  let list = PRODUCTS.slice();
+  if (cat) list = list.filter(p => p.category === cat);
+  if (avail === "in") list = list.filter(p => p.available !== false);
+  if (avail === "out") list = list.filter(p => p.available === false);
+  if (q) list = list.filter(p => (p.name + " " + (p.short || "") + " id" + p.id).toLowerCase().includes(q));
+  return list;
 }
+
+function catOptions(selected) {
+  return ["hvoynye", "listvennye", "mnogoletnie"].map(c =>
+    `<option value="${c}"${c === selected ? " selected" : ""}>${catTitle(c)}</option>`).join("");
+}
+
+function productRow(p) {
+  const out = p.available === false;
+  const photosCount = (p.gallery || []).length + 1;
+  return `<tr class="ptable__row${out ? " ptable__row--out" : ""}" data-id="${p.id}">
+    <td data-label="Фото">
+      <a href="product.html?id=${p.id}" target="_blank" rel="noopener" title="Открыть карточку на сайте">
+        <img class="ptable__img" src="${p.image}" alt="" loading="lazy">
+      </a>
+    </td>
+    <td data-label="Название">
+      <div class="ptable__name">${esc(p.name)}</div>
+      <div class="ptable__meta">id ${p.id} · фото: ${photosCount}${out ? " · <b>нет в наличии</b>" : ""}</div>
+    </td>
+    <td data-label="Категория">
+      <select class="ptable__select" data-act="cat" data-id="${p.id}">${catOptions(p.category)}</select>
+    </td>
+    <td data-label="Цена, ₽">
+      <input class="ptable__price" type="number" min="0" step="50" value="${Number(p.price) || 0}" data-act="price" data-id="${p.id}">
+    </td>
+    <td data-label="Наличие">
+      <label class="switch" title="${out ? "Сейчас на сайте: «Нет в наличии»" : "Сейчас на сайте: в продаже"}">
+        <input type="checkbox" data-act="avail" data-id="${p.id}"${out ? "" : " checked"}>
+        <span class="switch__track"><span class="switch__dot"></span></span>
+        <span class="switch__text">${out ? "нет" : "есть"}</span>
+      </label>
+    </td>
+    <td data-label="Действия" class="ptable__actions">
+      <button class="prow__btn" data-act="edit" data-id="${p.id}">Изменить</button>
+      <button class="prow__btn" data-act="ai" data-id="${p.id}" title="Определить растение по фото и заполнить описание">🤖 ИИ</button>
+      <button class="prow__btn prow__btn--danger" data-act="del" data-id="${p.id}">Удалить</button>
+    </td>
+  </tr>`;
+}
+
+function draftRow(d, i) {
+  return `<tr class="ptable__row ptable__row--draft">
+    <td data-label="Фото"><img class="ptable__img" src="${d.imageDataURL || "images/site/7.jpg"}" alt=""></td>
+    <td data-label="Название">
+      <div class="ptable__name">${esc(d.name || "Без названия")}<span class="tag-draft">черновик</span></div>
+      <div class="ptable__meta">${catTitle(d.category)}${d.price != null ? " · " + fmtMoney(d.price) : ""}</div>
+    </td>
+    <td data-label="Категория">${catTitle(d.category)}</td>
+    <td data-label="Цена, ₽">${d.price != null ? fmtMoney(d.price) : "—"}</td>
+    <td data-label="Наличие">${d.available === false ? "нет" : "—"}</td>
+    <td data-label="Действия" class="ptable__actions">
+      <button class="prow__btn" data-act="editdraft" data-i="${i}">В форму</button>
+      <button class="prow__btn prow__btn--danger" data-act="deldraft" data-i="${i}">Удалить</button>
+    </td>
+  </tr>`;
+}
+
+function renderTable() {
+  const list = filteredProducts();
+  const outCount = PRODUCTS.filter(p => p.available === false).length;
+  $("prodCount").textContent =
+    `— ${PRODUCTS.length} на сайте` +
+    (outCount ? `, из них ${outCount} нет в наличии` : "") +
+    (drafts.length ? `, черновиков: ${drafts.length}` : "") +
+    (list.length !== PRODUCTS.length ? ` · показано: ${list.length}` : "");
+
+  const body = [
+    ...drafts.map((d, i) => draftRow(d, i)),
+    ...list.map(p => productRow(p))
+  ].join("");
+
+  $("prodTable").innerHTML = `
+    <table class="ptable">
+      <thead><tr>
+        <th class="ptable__c-photo">Фото</th>
+        <th>Название</th>
+        <th class="ptable__c-cat">Категория</th>
+        <th class="ptable__c-price">Цена, ₽</th>
+        <th class="ptable__c-avail">Наличие</th>
+        <th class="ptable__c-act">Действия</th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>`;
+
+  bindTable();
+}
+
+function bindTable() {
+  $("prodTable").querySelectorAll("[data-act]").forEach(el => {
+    const act = el.dataset.act;
+    const id = el.dataset.id ? +el.dataset.id : null;
+
+    if (act === "avail" || act === "cat" || act === "price") {
+      el.addEventListener("change", () => {
+        if (act === "avail") toggleAvailable(id, el.checked);
+        if (act === "cat") updateField(id, { category: el.value }, "категория: " + catTitle(el.value));
+        if (act === "price") {
+          const v = parseInt(el.value, 10);
+          if (isNaN(v) || v < 0) {
+            alert("Цена — число (например 1300), без пробелов и без знака ₽.");
+            renderTable();
+            return;
+          }
+          updateField(id, { price: v }, "цена: " + fmtMoney(v));
+        }
+      });
+      if (act === "price") el.addEventListener("keydown", e => { if (e.key === "Enter") el.blur(); });
+      return;
+    }
+
+    el.addEventListener("click", () => {
+      if (act === "edit") startEdit(id);
+      if (act === "del") deleteProduct(id);
+      if (act === "ai") aiForProduct(id);
+      if (act === "editdraft") loadDraftToForm(+el.dataset.i);
+      if (act === "deldraft") {
+        if (confirm("Удалить черновик из браузера?")) {
+          drafts.splice(+el.dataset.i, 1); saveDrafts(); renderTable();
+        }
+      }
+    });
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Правки из таблицы: наличие, цена, категория                          */
+/* ------------------------------------------------------------------ */
+async function updateField(id, patch, label) {
+  const p = PRODUCTS.find(x => x.id === id);
+  if (!p) return;
+  const ok = await patchOnGitHub(id, patch, `[admin] ${p.name} — ${label}`);
+  if (ok) Object.assign(p, patch);
+  renderTable();
+}
+
+async function toggleAvailable(id, value) {
+  const p = PRODUCTS.find(x => x.id === id);
+  if (!p) return;
+  await updateField(id, { available: !!value }, value ? "вернули в наличие" : "сняли с наличия");
+}
+
+async function setAllAvailable(value) {
+  if (!PRODUCTS.length) return;
+  if (!confirm(value
+      ? "Включить наличие у ВСЕХ растений каталога?"
+      : "Выключить наличие у ВСЕХ растений каталога (на сайте появится «Нет в наличии»)?"))
+    return;
+  if (!ghPush) {
+    alert("GitHub не подключён — изменить каталог нельзя.\n\n" +
+      "Откройте «Настройки публикации» и вставьте токен с правом Contents: Read and write.");
+    return;
+  }
+  $("publog").style.display = "block";
+  try {
+    logLine("", "Читаю js/products.js с GitHub…");
+    const { text, sha } = await ghGetFile("js/products.js");
+    const products = parseProductsJS(text);
+    products.forEach(x => { x.available = !!value; });
+    await ghPutFile("js/products.js", utf8b64(productsToJS(products)),
+      `[admin] Наличие: ${value ? "включили всем" : "выключили всем"}`, sha);
+    PRODUCTS.forEach(x => { x.available = !!value; });
+    renderTable();
+    logLine("ok", value ? "Всем растениям включено наличие." : "Все растения сняты с наличия.");
+    logLine("", "Изменится на сайте через 1–2 минуты.");
+  } catch (e) {
+    logLine("err", "Ошибка: " + e.message);
+    renderTable();
+  }
+}
+
+/* Одна и та же операция: прочитать products.js → изменить → записать */
+async function patchOnGitHub(id, patch, message) {
+  if (!ghPush) {
+    alert("GitHub не подключён — изменить товар на сайте нельзя.\n\n" +
+      "Откройте «Настройки публикации», вставьте токен с правом Contents: Read and write — " +
+      "и правки из таблицы будут уходить на сайт сами.");
+    return false;
+  }
+  $("publog").style.display = "block";
+  try {
+    logLine("", "Сохраняю: " + message.replace("[admin] ", "") + "…");
+    const { text, sha } = await ghGetFile("js/products.js");
+    const products = parseProductsJS(text);
+    const target = products.find(x => x.id === id);
+    if (!target) throw new Error("растение не найдено в файле products.js");
+    Object.assign(target, patch);
+    await ghPutFile("js/products.js", utf8b64(productsToJS(products)), message, sha);
+    logLine("ok", "Готово — на сайте появится через 1–2 минуты.");
+    return true;
+  } catch (e) {
+    logLine("err", "Ошибка: " + e.message);
+    return false;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* ИИ-помощник: определяет растение по фото                             */
+/* ------------------------------------------------------------------ */
+let aiPrev = null;   // снимок полей до заполнения ИИ (для кнопки «Отменить»)
+
+function aiReady() { return typeof AdminAI !== "undefined" && AdminAI.isReady(); }
+
+function renderAiHint() {
+  const el = $("aiHint");
+  if (!el) return;
+  el.textContent = aiReady()
+    ? `ИИ: ${AdminAI.providerLabel()} · ${AdminAI.model()}`
+    : "ИИ не настроен — нажмите «Настроить ИИ»";
+}
+
+function openAiSettings() {
+  const s = $("settings");
+  if (s) {
+    s.style.display = "block";
+    s.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  setTimeout(() => { try { $("aiKey").focus(); } catch (e) {} }, 400);
+  if (!aiReady() && typeof AdminAI !== "undefined") alert(AdminAI.requirement());
+}
+
+function showAiResult(data) {
+  const box = $("aiResult");
+  if (!box) return;
+  const pct = Math.round((data.confidence || 0) * 100);
+  box.style.display = "block";
+  box.innerHTML = `
+    <div class="ai-result__head">
+      <b>🤖 ИИ заполнил поля</b>
+      <span class="ai-result__conf">уверенность: ${pct}%</span>
+    </div>
+    <p class="muted small">${
+      data.comment
+        ? esc(data.comment)
+        : (data.latin ? "Латинское название: " + esc(data.latin) : "Проверьте текст — особенно сорт и цифры.")
+    }</p>
+    <div class="ai-result__actions">
+      <button class="btn btn--ghost btn--sm" id="btnAiUndo" type="button">Отменить заполнение</button>
+      <button class="btn btn--ghost btn--sm" id="btnAiHide" type="button">Скрыть</button>
+    </div>`;
+  $("btnAiUndo").addEventListener("click", undoAi);
+  $("btnAiHide").addEventListener("click", () => { box.style.display = "none"; });
+}
+
+function undoAi() {
+  if (!aiPrev) return;
+  $("fName").value = aiPrev.name;
+  $("fCategory").value = aiPrev.category;
+  $("fShort").value = aiPrev.short;
+  $("fDesc").value = aiPrev.description;
+  aiPrev = null;
+  const box = $("aiResult"); if (box) box.style.display = "none";
+  renderPreview();
+  logLine("", "Заполнение ИИ отменено — вернулся ваш текст.");
+}
+
+/* Заполнить форму по фото, которое уже лежит в дропзоне */
+async function aiFillForm() {
+  if (!photos.length) {
+    alert("Сначала добавьте фото — перетащите его в рамку выше, выберите файлом или вставьте Ctrl+V.");
+    return;
+  }
+  if (!aiReady()) { openAiSettings(); return; }
+
+  const btn = $("btnAI");
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "🤖 ИИ смотрит фото…";
+  $("publog").style.display = "block";
+  logLine("", `Отправляю фото в ИИ (${AdminAI.providerLabel()}, ${AdminAI.model()})…`);
+  try {
+    const data = await AdminAI.analyze(photos[0].dataURL);
+    if (!data.name && !data.description)
+      throw new Error("ИИ не вернул название" + (data.comment ? " (" + data.comment + ")" : ""));
+    if (!data.confidence)
+      logLine("", "Внимание: ИИ не уверен в определении." + (data.comment ? " " + data.comment : ""));
+    aiPrev = collectForm();
+    if (data.name) $("fName").value = data.name;
+    if (data.category) $("fCategory").value = data.category;
+    if (data.short) $("fShort").value = data.short;
+    if (data.description) $("fDesc").value = data.description;
+    showAiResult(data);
+    renderPreview();
+    logLine("ok", "Поля заполнены. Проверьте текст, поправьте что нужно — и публикуйте.");
+  } catch (e) {
+    logLine("err", "ИИ: " + e.message);
+    alert("ИИ не справился: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
+}
+
+/* Определить растение по фото уже опубликованного товара */
+async function aiForProduct(id) {
+  const p = PRODUCTS.find(x => x.id === id);
+  if (!p) return;
+  if (!aiReady()) { openAiSettings(); return; }
+  if (!confirm(`Определить растение по фото «${p.name}»?\n\n` +
+      `Форма заполнится заново: название, категория, подпись и описание. ` +
+      `Вы всё проверите и нажмёте «Сохранить изменения».`))
+    return;
+
+  $("publog").style.display = "block";
+  logLine("", "ИИ смотрит фото «" + p.name + "»…");
+  try {
+    const data = await AdminAI.analyzeUrl(p.image);
+    if (!data.name && !data.description)
+      throw new Error("ИИ не вернул название" + (data.comment ? " (" + data.comment + ")" : ""));
+    startEdit(id);
+    aiPrev = collectForm();
+    if (data.name) $("fName").value = data.name;
+    if (data.category) $("fCategory").value = data.category;
+    if (data.short) $("fShort").value = data.short;
+    if (data.description) $("fDesc").value = data.description;
+    showAiResult(data);
+    logLine("ok", "Готово. Проверьте поля и нажмите «Сохранить изменения».");
+  } catch (e) {
+    logLine("err", "ИИ: " + e.message);
+    alert("ИИ не справился: " + e.message);
+  }
+}
+
+/* Настройки ИИ в блоке «Настройки публикации» */
+function renderAiSettings() {
+  if (typeof AdminAI === "undefined") return;
+  const c = AdminAI.get();
+  $("aiProvider").value = c.provider;
+  $("aiModel").value = c.model || "";
+  $("aiModel").placeholder = AdminAI.DEFAULT_MODEL[c.provider] || "модель";
+  $("aiKey").value = c.key || "";
+  $("aiModelList").innerHTML = AdminAI.models().map(m => `<option value="${m}"></option>`).join("");
+  renderAiStatus();
+}
+
+function renderAiStatus() {
+  const note = $("aiTestNote");
+  if (note) {
+    note.textContent = aiReady()
+      ? `Подключено: ${AdminAI.providerLabel()} · модель ${AdminAI.model()}`
+      : "ИИ не подключён: укажите модель и ключ.";
+  }
+  renderAiHint();
+}
+
 const catTitle = key => ({ hvoynye: "Хвойные", listvennye: "Лиственные", mnogoletnie: "Многолетние" }[key] || key);
 
 function startEdit(id) {
@@ -448,6 +776,7 @@ function startEdit(id) {
   $("fPrice").value = p.price;
   $("fShort").value = p.short || "";
   $("fDesc").value = p.description || "";
+  if ($("fAvailable")) $("fAvailable").checked = p.available !== false;
   photos = [];
   renderThumbs();
   // предпросмотр с текущим фото с сайта
@@ -468,7 +797,7 @@ function cardMarkup(p) {
       <div class="card__name">${esc(p.name)}</div>
       <div class="card__short">${esc(p.short || "")}</div>
       <div class="card__bottom">
-        <span class="card__price">${money(p.price)}</span>
+        <span class="card__price">${fmtMoney(p.price)}</span>
         <span class="card__more">Подробнее →</span>
       </div>
     </div>
@@ -542,6 +871,7 @@ async function publish() {
     const entry = {
       id,
       name: f.name, category: f.category, price: f.price,
+      available: f.available !== false,
       image: (editingId != null && !photos.length)
         ? oldEntry?.image || mainPath
         : mainPath,
@@ -638,6 +968,7 @@ async function downloadFiles() {
   if (oldEntry) {
     Object.assign(oldEntry, {
       name: f.name, category: f.category, price: f.price,
+      available: f.available !== false,
       image: photos[0] ? `images/catalog/${id}.jpg` : oldEntry.image,
       gallery: gallery.length ? gallery : (oldEntry.gallery || []),
       short: f.short, description: f.description
@@ -645,6 +976,7 @@ async function downloadFiles() {
   } else {
     products.push({
       id, name: f.name, category: f.category, price: f.price,
+      available: f.available !== false,
       image: `images/catalog/${id}.jpg`, gallery,
       short: f.short, description: f.description
     });
@@ -761,10 +1093,44 @@ $("btnDownload").addEventListener("click", downloadFiles);
 $("btnReset").addEventListener("click", resetForm);
 $("btnChangePass").addEventListener("click", changeAdminPassword);
 
+/* --- каталог: фильтры и массовое наличие --- */
+$("tblSearch").addEventListener("input", renderTable);
+$("tblCat").addEventListener("change", renderTable);
+$("tblAvail").addEventListener("change", renderTable);
+$("btnAllIn").addEventListener("click", () => setAllAvailable(true));
+$("btnAllOut").addEventListener("click", () => setAllAvailable(false));
+
+/* --- ИИ-помощник --- */
+$("btnAI").addEventListener("click", aiFillForm);
+$("btnAiSettings").addEventListener("click", openAiSettings);
+$("btnAiSave").addEventListener("click", async () => {
+  AdminAI.set({
+    provider: $("aiProvider").value,
+    model: $("aiModel").value.trim(),
+    key: $("aiKey").value.trim()
+  });
+  renderAiSettings();
+  if (!AdminAI.isReady()) { alert("Укажите модель и ключ."); return; }
+  const note = $("aiTestNote");
+  note.textContent = "Проверяю ключ…";
+  try {
+    await AdminAI.test();
+    note.textContent = "✓ Ключ работает: " + AdminAI.providerLabel() + " · " + AdminAI.model();
+  } catch (e) {
+    note.textContent = "✗ " + e.message;
+  }
+  renderAiHint();
+});
+$("btnAiForget").addEventListener("click", () => {
+  AdminAI.set({ key: "", model: "" });
+  renderAiSettings();
+});
+
 initDropzone();
 $("cfgRepo").value = cfg.repo;
 $("cfgBranch").value = cfg.branch;
 $("cfgToken").value = cfg.token;
+renderAiSettings();
 renderPreview();
 renderTable();
 checkConnection();
