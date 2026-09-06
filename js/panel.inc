@@ -154,6 +154,13 @@
         </label>
       </div>
 
+      <label>Размер контейнера <span class="muted">(C3, C5, C7,5, C10 и т.п.)</span>
+        <input id="fSize" type="text" placeholder="C3" maxlength="10">
+      </label>
+      <label>Количество на складе <span class="muted">(число или оставить пустым)</span>
+        <input id="fQty" type="number" min="0" step="1" placeholder="100">
+      </label>
+
       <label class="check"><input type="checkbox" id="fAvailable" checked>
         В наличии <span class="muted">(выключите — и растение на сайте получит отметку «Нет в наличии»)</span></label>
 

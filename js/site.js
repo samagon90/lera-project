@@ -106,10 +106,12 @@ function renderFooter() {
 
 function cardHTML(p) {
   const out = p.available === false;
+  const sizeBadge = p.size ? `<span class="card__badge">${String(p.size).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}</span>` : "";
   return `<a class="card${out ? " card--out" : ""}" href="product.html?id=${p.id}">
     <div class="card__img">
       <img src="${p.image}" alt="${p.name}" loading="lazy">
       <span class="card__tag">${CATEGORIES[p.category]?.title || ""}</span>
+      ${sizeBadge}
       ${out ? '<span class="card__out">Нет в наличии</span>' : ""}
     </div>
     <div class="card__body">

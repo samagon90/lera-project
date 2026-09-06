@@ -43,9 +43,17 @@ if (!p) {
 } else {
   document.title = p.name + " — питомник «ДарЛес»";
   const images = [p.image, ...(p.gallery || [])];
-  const paras = p.description.split(/\n\s*\n/)
-    .map(t => "<p>" + escHTML(t.trim()) + "</p>").join("");
+  let paras = "";
+  if (p.description && p.description.trim()) {
+    paras = p.description.split(/\n\s*\n/)
+      .map(t => "<p>" + escHTML(t.trim()) + "</p>").join("");
+  } else {
+    paras = '<p class="muted">Описание скоро появится.</p>';
+  }
 
+  const sizeInfo = p.size ? `<div class="product__meta"><b>Размер контейнера:</b> ${escHTML(p.size)}</div>` : "";
+  const qtyInfo = p.qty != null ? `<div class="product__meta"><b>В наличии:</b> ${p.qty} шт</div>` : "";
+  const metaBlock = (sizeInfo || qtyInfo) ? `<div class="product__meta-block">${sizeInfo}${qtyInfo}</div>` : "";
   const catTitle = escHTML(CATEGORIES[p.category].title);
   const catKey = escHTML(p.category);
   const pname = escHTML(p.name);
@@ -73,6 +81,7 @@ if (!p) {
     +   '<div>'
     +   '<div class="product__cat">' + catTitle + '</div>'
     +   '<h1 class="product__title">' + pname + '</h1>'
+    + metaBlock
     +   (p.available === false ? '<div class="product__out">Нет в наличии</div>' : '')
     +   '<div class="product__price">' + price + '</div>'
     +     '<div class="product__note">Цена указана за одно растение. Наличие и размеры уточняйте по телефону.</div>'

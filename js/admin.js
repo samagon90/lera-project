@@ -152,8 +152,10 @@ const FILE_HEADER = `/* ========================================================
      id  — уникальный номер (у нового: +1 к последнему)
      category — одно из: "hvoynye" | "listvennye" | "mnogoletnie"
      price — цена числом, без пробелов и ₽
-     available — true/false: есть ли растение в продаже (false = «Нет в наличии»)
-     image — путь к фото, например "images/catalog/23.jpg"
+     available   — true/false: есть ли растение в продаже (false = «Нет в наличии»)
+     size        — размер контейнера (например "C3", "C5", "C7,5", "C10")
+     qty         — количество на складе (целое число или null)
+     image       — путь к фото, например "images/catalog/23.jpg"
      gallery — доп. фото: ["images/catalog/23-1.jpg"] или []
      short — короткая подпись в карточке
      description — абзацы разделяются пустой строкой
@@ -169,6 +171,8 @@ function productToJS(p) {
     category: ${q(p.category)},
     price: ${Number(p.price)},
     available: ${p.available === false ? "false" : "true"},
+    size: ${q(p.size ?? "")},
+    qty: ${p.qty != null ? p.qty : "null"},
     image: ${q(p.image)},
     gallery: ${JSON.stringify(p.gallery || [])},
     short: ${q(p.short || "")},
@@ -442,11 +446,16 @@ function searchPhoto(engine) {
 function collectForm() {
   const name = $("fName").value.trim();
   const price = parseInt($("fPrice").value, 10);
+  const size = $("fSize") ? $("fSize").value.trim() : "";
+  const qtyRaw = $("fQty") ? $("fQty").value.trim() : "";
+  const qty = qtyRaw === "" ? null : (isNaN(parseInt(qtyRaw, 10)) ? null : parseInt(qtyRaw, 10));
   return {
     name,
     category: $("fCategory").value,
     price: isNaN(price) ? null : price,
     available: $("fAvailable") ? $("fAvailable").checked : true,
+    size,
+    qty,
     short: $("fShort").value.trim(),
     description: $("fDesc").value.trim(),
   };
@@ -477,7 +486,7 @@ function renderPreview() {
     </a>
     <p class="muted small" style="margin-top:14px">${photos.length > 1 ? `Будет загружено фото: ${photos.length} (первое — главное).` : "Главное фото карточки — слева вверху."}</p>`;
 }
-["fName", "fCategory", "fPrice", "fShort", "fDesc"].forEach(id =>
+["fName", "fCategory", "fPrice", "fShort", "fDesc", "fSize", "fQty"].forEach(id =>
   document.addEventListener("input", e => { if (e.target.id === id) renderPreview(); }));
 if ($("fAvailable")) $("fAvailable").addEventListener("change", renderPreview);
 
@@ -493,6 +502,8 @@ function resetForm() {
   editingId = null;
   photos = [];
   ["fName", "fPrice", "fShort", "fDesc"].forEach(id => $(id).value = "");
+  if (document.getElementById("fSize")) $("fSize").value = "";
+  if (document.getElementById("fQty")) $("fQty").value = "";
   $("fCategory").value = "hvoynye";
   if ($("fAvailable")) $("fAvailable").checked = true;
   const aiBox = $("aiResult"); if (aiBox) aiBox.style.display = "none";
@@ -546,6 +557,12 @@ function productRow(p) {
     <td data-label="Цена, ₽">
       <input class="ptable__price" type="number" min="0" step="50" value="${Number(p.price) || 0}" data-act="price" data-id="${p.id}">
     </td>
+    <td data-label="Размер">
+      <span class="ptable__meta">${esc(p.size || "—")}</span>
+    </td>
+    <td data-label="Кол-во">
+      <input class="ptable__qty" type="number" min="0" step="1" value="${p.qty != null ? p.qty : ""}" placeholder="—" data-act="qty" data-id="${p.id}" title="Измените количество — обновится на сайте">
+    </td>
     <td data-label="Наличие">
       <label class="switch" title="${out ? "Сейчас на сайте: «Нет в наличии»" : "Сейчас на сайте: в продаже"}">
         <input type="checkbox" data-act="avail" data-id="${p.id}"${out ? "" : " checked"}>
@@ -562,6 +579,8 @@ function productRow(p) {
 }
 
 function draftRow(d, i) {
+  const sizeText = d.size ? String(d.size) : "—";
+  const qtyText = d.qty != null ? d.qty : "—";
   return `<tr class="ptable__row ptable__row--draft">
     <td data-label="Фото"><img class="ptable__img" src="${d.imageDataURL || "images/site/7.jpg"}" alt=""></td>
     <td data-label="Название">
@@ -570,6 +589,8 @@ function draftRow(d, i) {
     </td>
     <td data-label="Категория">${catTitle(d.category)}</td>
     <td data-label="Цена, ₽">${d.price != null ? fmtMoney(d.price) : "—"}</td>
+    <td data-label="Размер"><span class="ptable__meta">${esc(sizeText)}</span></td>
+    <td data-label="Кол-во"><span class="ptable__meta">${qtyText}</span></td>
     <td data-label="Наличие">${d.available === false ? "нет" : "—"}</td>
     <td data-label="Действия" class="ptable__actions">
       <button class="prow__btn" data-act="editdraft" data-i="${i}">В форму</button>
@@ -599,6 +620,8 @@ function renderTable() {
         <th>Название</th>
         <th class="ptable__c-cat">Категория</th>
         <th class="ptable__c-price">Цена, ₽</th>
+        <th class="ptable__c-size">Размер</th>
+        <th class="ptable__c-qty">Кол-во</th>
         <th class="ptable__c-avail">Наличие</th>
         <th class="ptable__c-act">Действия</th>
       </tr></thead>
@@ -613,10 +636,25 @@ function bindTable() {
     const act = el.dataset.act;
     const id = el.dataset.id ? +el.dataset.id : null;
 
-    if (act === "avail" || act === "cat" || act === "price") {
+    if (act === "avail" || act === "cat" || act === "price" || act === "qty") {
       el.addEventListener("change", () => {
         if (act === "avail") toggleAvailable(id, el.checked);
         if (act === "cat") updateField(id, { category: el.value }, "категория: " + catTitle(el.value));
+        if (act === "qty") {
+          const raw = el.value.trim();
+          const v = raw === "" ? null : (isNaN(parseInt(raw, 10)) ? null : parseInt(raw, 10));
+          if (v === null && raw !== "") {
+            alert("Количество — целое число или оставьте пустым.");
+            renderTable();
+            return;
+          }
+          if (v !== null && v < 0) {
+            alert("Количество не может быть отрицательным.");
+            renderTable();
+            return;
+          }
+          updateField(id, { qty: v }, "количество: " + (v != null ? v + " шт" : "—"));
+        }
         if (act === "price") {
           const v = parseInt(el.value, 10);
           if (isNaN(v) || v < 0) {
@@ -876,6 +914,8 @@ function startEdit(id) {
   $("fPrice").value = p.price;
   $("fShort").value = p.short || "";
   $("fDesc").value = p.description || "";
+  if (document.getElementById("fSize")) $("fSize").value = p.size || "";
+  if (document.getElementById("fQty")) $("fQty").value = p.qty != null ? p.qty : "";
   if ($("fAvailable")) $("fAvailable").checked = p.available !== false;
   photos = [];
   hideOfflineRecognition(); recogPrev = null;
@@ -910,6 +950,8 @@ function loadDraftToForm(i) {
   $("fName").value = d.name; $("fCategory").value = d.category;
   $("fPrice").value = d.price ?? ""; $("fShort").value = d.short || "";
   $("fDesc").value = d.description || "";
+  if (document.getElementById("fSize")) $("fSize").value = d.size || "";
+  if (document.getElementById("fQty")) $("fQty").value = d.qty != null ? d.qty : "";
   photos = [
     ...(d.imageDataURL ? [{ originalDataURL: d.imageDataURL, dataURL: d.imageDataURL, state: null, name: d.name || "" }] : []),
     ...(d.galleryDataURLs || []).map(u => ({ originalDataURL: u, dataURL: u, state: null, name: "" }))
@@ -974,6 +1016,8 @@ async function publish() {
       id,
       name: f.name, category: f.category, price: f.price,
       available: f.available !== false,
+      size: f.size || "",
+      qty: f.qty != null ? f.qty : null,
       image: (editingId != null && !photos.length)
         ? oldEntry?.image || mainPath
         : mainPath,
@@ -1071,6 +1115,8 @@ async function downloadFiles() {
     Object.assign(oldEntry, {
       name: f.name, category: f.category, price: f.price,
       available: f.available !== false,
+      size: f.size || "",
+      qty: f.qty != null ? f.qty : null,
       image: photos[0] ? `images/catalog/${id}.jpg` : oldEntry.image,
       gallery: gallery.length ? gallery : (oldEntry.gallery || []),
       short: f.short, description: f.description
@@ -1079,6 +1125,8 @@ async function downloadFiles() {
     products.push({
       id, name: f.name, category: f.category, price: f.price,
       available: f.available !== false,
+      size: f.size || "",
+      qty: f.qty != null ? f.qty : null,
       image: `images/catalog/${id}.jpg`, gallery,
       short: f.short, description: f.description
     });

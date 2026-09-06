@@ -130,6 +130,8 @@ h3{font-size:20px}
 .card__tag{position:absolute;top:12px;left:12px;background:rgba(255,255,255,.94);color:var(--green);font-size:12px;
   padding:5px 12px;border-radius:999px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;
   box-shadow:0 2px 10px rgba(17,17,17,.12)}
+.card__badge{position:absolute;bottom:12px;left:12px;background:rgba(255,255,255,.94);color:#1a3b1a;font-size:11px;
+  padding:3px 8px;border-radius:999px;font-weight:600;box-shadow:0 2px 10px rgba(17,17,17,.12);letter-spacing:.02em}
 .card__body{padding:18px 20px 22px}
 .card__name{font-weight:600;font-size:17px}
 .card__short{color:var(--gray);font-size:14px;margin-top:6px;min-height:20px}
@@ -249,3 +251,5 @@ h3{font-size:20px}
   .page-head--catalog .tab img{width:32px;height:32px}
   .toolbar{margin:12px 0 6px}
 }
+.product__meta-block{margin:10px 0 14px}
+.product__meta{font-size:14px;color:#333;margin-top:4px}
