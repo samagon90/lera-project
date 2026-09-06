@@ -105,17 +105,21 @@ function renderFooter() {
 }
 
 function cardHTML(p) {
-  return `<a class="card" href="product.html?id=${p.id}">
+  const out = p.available === false;
+  return `<a class="card${out ? " card--out" : ""}" href="product.html?id=${p.id}">
     <div class="card__img">
       <img src="${p.image}" alt="${p.name}" loading="lazy">
       <span class="card__tag">${CATEGORIES[p.category]?.title || ""}</span>
+      ${out ? '<span class="card__out">Нет в наличии</span>' : ""}
     </div>
     <div class="card__body">
       <div class="card__name">${p.name}</div>
       <div class="card__short">${p.short || ""}</div>
       <div class="card__bottom">
-        <span class="card__price">${money(p.price)}</span>
-        <span class="card__more">Подробнее →</span>
+        ${out
+          ? '<span class="card__price card__price--out">Нет в наличии</span>'
+          : `<span class="card__price">${money(p.price)}</span>`}
+        <span class="card__more">${out ? "Смотреть →" : "Подробнее →"}</span>
       </div>
     </div>
   </a>`;

@@ -32,6 +32,7 @@
       <option value="price-desc">Сначала дороже</option>
       <option value="name">По названию (А–Я)</option>
     </select>
+    <label class="toolbar__check"><input type="checkbox" id="instock"> Только в наличии</label>
     <span class="count" id="count"></span>
   </div>
   <div class="grid" id="grid"></div>
@@ -72,16 +73,20 @@ tabsEl.addEventListener("click", e => {
 });
 document.getElementById("search").addEventListener("input", render);
 document.getElementById("sort").addEventListener("change", render);
+document.getElementById("instock").addEventListener("change", render);
 
 function render() {
   [...tabsEl.children].forEach(t => t.classList.toggle("active", t.dataset.cat === current));
   const q = document.getElementById("search").value.trim().toLowerCase();
   let list = PRODUCTS.filter(p => p.category === current);
   if (q) list = list.filter(p => (p.name + " " + (p.short || "")).toLowerCase().includes(q));
+  if (document.getElementById("instock").checked) list = list.filter(p => p.available !== false);
   const s = document.getElementById("sort").value;
   if (s === "price-asc") list.sort((a, b) => a.price - b.price);
   if (s === "price-desc") list.sort((a, b) => b.price - a.price);
   if (s === "name") list.sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  // чего нет в наличии — в конец списка
+  list.sort((a, b) => (a.available === false ? 1 : 0) - (b.available === false ? 1 : 0));
   document.getElementById("grid").innerHTML = list.map(cardHTML).join("");
   document.getElementById("empty").style.display = list.length ? "none" : "block";
   document.getElementById("count").textContent = list.length + " " +
